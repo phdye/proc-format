@@ -1,3 +1,4 @@
+import sys
 import os
 import re
 import subprocess
@@ -138,8 +139,12 @@ def format_with_clang(content, clang_format_path="clang-format"):
     """Format content using clang-format."""
     with open("debug/f-before.c", "w") as f:
         f.write(content)
-    # text=True
-    process = subprocess.Popen([clang_format_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    popen_additional_args = {}
+    if sys.version_info >= (3, 7, 0):
+        popen_additional_args["text"] = True
+    process = subprocess.Popen([clang_format_path],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            **popen_additional_args)
     output, error = process.communicate(input=content)
     if process.returncode != 0:
         raise RuntimeError("Clang-format failed: {0}".format(error))
