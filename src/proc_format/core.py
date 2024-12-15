@@ -13,8 +13,28 @@ logging.basicConfig(level=logging.INFO)
 MARKER_PREFIX = "// EXEC SQL MARKER"
 re_MARKER_PREFIX = re.compile(r"([{}])?\s*//\s\s*EXEC\s\s*SQL\s\s*MARKER\s\s*:(\d+):")
 
-def get_marker(n):
-    return "{0} :{1}:".format(MARKER_PREFIX, n)
+def process_file(input_file, output_file, clang_format_path="clang-format"):
+    """Main function to process the file."""
+
+    print("Formatting: {0}".format(input_file))
+
+    with open(input_file, 'r') as f:
+        original_content = f.read()
+
+    # Step 1: Mark EXEC SQL lines
+    marked_content, exec_sql_segments = capture_exec_sql_blocks(original_content.splitlines())
+
+    # Step 2: Format using clang-format
+    formatted_content = format_with_clang("\n".join(marked_content), clang_format_path)
+
+    # Step 3: Restore EXEC SQL lines
+    final_content = restore_exec_sql_blocks(formatted_content, exec_sql_segments)
+
+    # Step 4: Write output to file
+    with open(output_file, 'w') as f:
+        f.write(final_content)
+
+    print("File processed successfully: {0}".format(output_file))
 
 def capture_exec_sql_blocks(lines):
     """
@@ -103,6 +123,29 @@ def capture_exec_sql_blocks(lines):
 
     return output_lines, captured_blocks
 
+def format_with_clang(content, clang_format_path="clang-format"):
+    """Format content using clang-format."""
+    print("- Apply clang-format to C code content ...")
+    with open("debug/f-before.c", "w") as f:
+        f.write(content)
+    popen_additional_args = {}
+    if sys.version_info >= (3, 7, 0): # Python ? 3.2.5
+        popen_additional_args["text"] = True
+    else:
+        content = content.encode()
+    process = subprocess.Popen([clang_format_path],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            **popen_additional_args)
+    output, error = process.communicate(input=content)
+    if process.returncode != 0:
+        raise RuntimeError("Clang-format failed: {0}".format(error))
+    with open("debug/f-after.c", "w") as f:
+        if sys.version_info >= (3, 7, 0):
+            f.write(output)
+        else:
+            f.write(output.decode())
+    return output
+
 def restore_exec_sql_blocks(content, exec_sql_segments):
     lines = content.decode().split('\n')
     restored_lines = []
@@ -144,48 +187,5 @@ def restore_exec_sql_blocks(content, exec_sql_segments):
 
     return "\n".join(restored_lines)
 
-def format_with_clang(content, clang_format_path="clang-format"):
-    """Format content using clang-format."""
-    print("- Apply clang-format to C code content ...")
-    with open("debug/f-before.c", "w") as f:
-        f.write(content)
-    popen_additional_args = {}
-    if sys.version_info >= (3, 7, 0): # Python ? 3.2.5
-        popen_additional_args["text"] = True
-    else:
-        content = content.encode()
-    process = subprocess.Popen([clang_format_path],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            **popen_additional_args)
-    output, error = process.communicate(input=content)
-    if process.returncode != 0:
-        raise RuntimeError("Clang-format failed: {0}".format(error))
-    with open("debug/f-after.c", "w") as f:
-        if sys.version_info >= (3, 7, 0):
-            f.write(output)
-        else:
-            f.write(output.decode())
-    return output
-
-def process_file(input_file, output_file, clang_format_path="clang-format"):
-    """Main function to process the file."""
-
-    print("Formatting: {0}".format(input_file))
-
-    with open(input_file, 'r') as f:
-        original_content = f.read()
-
-    # Step 1: Mark EXEC SQL lines
-    marked_content, exec_sql_segments = capture_exec_sql_blocks(original_content.splitlines())
-
-    # Step 2: Format using clang-format
-    formatted_content = format_with_clang("\n".join(marked_content), clang_format_path)
-
-    # Step 3: Restore EXEC SQL lines
-    final_content = restore_exec_sql_blocks(formatted_content, exec_sql_segments)
-
-    # Step 4: Write output to file
-    with open(output_file, 'w') as f:
-        f.write(final_content)
-
-    print("File processed successfully: {0}".format(output_file))
+def get_marker(n):
+    return "{0} :{1}:".format(MARKER_PREFIX, n)
