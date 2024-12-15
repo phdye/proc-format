@@ -1,9 +1,11 @@
 #!/bin/bash
 
+log=/dn/errors.txt
+
 in=examples/basic/unformated.pc 
 out=debug/formated.pc
 
-PYTHONPATH=$(realpath src) python -m proc_format ${in} ${out}
+( PYTHONPATH=$(realpath src) python -m proc_format ${in} ${out} 2>&1 ) | tee ${log}
 
 cat ${out}
-
+echo

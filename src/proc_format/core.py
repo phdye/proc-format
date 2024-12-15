@@ -1,178 +1,194 @@
-
-# Restructured Proc Formatter
-# Original functionality preserved, with modularized and testable structure
-
+import os
+import re
+import subprocess
 import logging
 
 logging.basicConfig(level=logging.INFO)
 
-# --- Core Logic ---
-
-#!/usr/bin/env python3
-
-import subprocess
-import os
-import re
-
-re_EXEC_SQL  = re.compile(r'EXEC\s\s*SQL\b(\s*(.*))?')
-re_DECLARE   = re.compile(r'\s*(BEGIN|END)\s\s*DECLARE\s\s*SECTION\s*[;]')
-re_INDENT    = re.compile(r'^(\s*)(.*)')
-
-# Regex patterns for SQL Cursor Management
-re_DECLARE_CURSOR = re.compile(r'EXEC\s+SQL\s+DECLARE\s+\w+\s+CURSOR\s+FOR\b')
-re_OPEN_CURSOR = re.compile(r'EXEC\s+SQL\s+OPEN\s+\w+\b')
-re_FETCH_CURSOR = re.compile(r'EXEC\s+SQL\s+FETCH\s+\w+\b')
-re_CLOSE_CURSOR = re.compile(r'EXEC\s+SQL\s+CLOSE\s+\w+\b')
-
 MARKER_PREFIX = "// EXEC SQL MARKER"
 re_MARKER_PREFIX = re.compile(r"([{}])?\s*//\s\s*EXEC\s\s*SQL\s\s*MARKER\s\s*:(\d+):")
 
-def get_marker(n : int, prefix=""):
-    return f"{prefix}{MARKER_PREFIX} :{n}:"
+# --- Registry for Modular EXEC SQL Handling ---
+EXEC_SQL_REGISTRY = {
+    # BEGIN and END DECLARE SECTION
+    "DECLARE SECTION - BEGIN": {
+        "pattern": r"EXEC SQL BEGIN DECLARE SECTION;",
+        "action": lambda lines: [lines[0].strip()]  # Replace only BEGIN line
+    },
+    "DECLARE SECTION - END": {
+        "pattern": r"EXEC SQL END DECLARE SECTION;",
+        "action": lambda lines: [lines[0].strip()]  # Replace only END line
+    },
 
-def is_complete_sql_statement(line, inside_quotes=False, current_quote=None, q_quote_delimiter=None):
+    # Cursor Declaration
+    "CURSOR DECLARATION": {
+        "pattern": r"EXEC SQL DECLARE \w+ CURSOR FOR",
+        "end_pattern": r";",  # Multi-line ending with semicolon
+        "action": lambda lines: lines  # Maintain original content
+    },
+
+    # Close Cursor
+    "CLOSE CURSOR": {
+        "pattern": r"EXEC SQL CLOSE \w+;",
+        "action": lambda lines: [lines[0].strip()]  # Single-line statement
+    },
+
+    # Commit Work
+    "COMMIT WORK RELEASE": {
+        "pattern": r"EXEC SQL COMMIT WORK RELEASE;",
+        "action": lambda lines: [lines[0].strip()]  # Single-line statement
+    },
+
+    # Connect Statement
+    "CONNECT": {
+        "pattern": r"EXEC SQL CONNECT \S+;",
+        "action": lambda lines: [lines[0].strip()]  # Single-line statement
+    },
+    "CONNECT WITH DB": {
+        "pattern": r"EXEC SQL CONNECT \S+ AT \S+;",
+        "action": lambda lines: [lines[0].strip()]  # Single-line statement
+    },
+
+    # Fetch Cursor
+    "FETCH CURSOR": {
+        "pattern": r"EXEC SQL FETCH \w+;",
+        "action": lambda lines: [lines[0].strip()]  # Single-line statement
+    },
+
+    # Include SQLCA
+    "INCLUDE SQLCA": {
+        "pattern": r"EXEC SQL INCLUDE SQLCA;",
+        "action": lambda lines: [lines[0].strip()]  # Single-line statement
+    },
+
+    # Open Cursor
+    "OPEN CURSOR": {
+        "pattern": r"EXEC SQL OPEN \w+;",
+        "action": lambda lines: [lines[0].strip()]  # Single-line statement
+    },
+
+    # WHENEVER Statements
+    "WHENEVER SQLERROR": {
+        "pattern": r"EXEC SQL WHENEVER SQLERROR .*;",
+        "action": lambda lines: [lines[0].strip()]  # Single-line statement
+    },
+    "WHENEVER NOT FOUND": {
+        "pattern": r"EXEC SQL WHENEVER NOT FOUND .*;",
+        "action": lambda lines: [lines[0].strip()]  # Single-line statement
+    },
+
+    # Multi-line Statements
+    "STATEMENT": {
+        "pattern": r"EXEC SQL\b",
+        "end_pattern": r";",  # Block terminates with semicolon
+        "action": lambda lines: lines  # Maintain original content
+    },
+
+    # END-EXEC for COBOL Compatibility
+    "END-EXEC;": {
+        "pattern": r"END-EXEC;",
+        "action": lambda lines: [lines[0].strip()]  # Single-line statement
+    }
+}
+
+def get_marker(n):
+    return f"{MARKER_PREFIX} :{n}:"
+
+def process_declare_section(lines):
+    # Add curly braces for formatting and maintain original content
+    processed_lines = ["{ // EXEC SQL DECLARE SECTION"]
+    processed_lines.extend([line.strip() for line in lines[1:-1]])  # Inner content
+    processed_lines.append("} // EXEC SQL DECLARE SECTION")
+    return processed_lines
+
+
+def capture_exec_sql_blocks(lines):
     """
-    Check if a line ends an EXEC SQL block, considering Oracle Pro*C quoting rules.
-    Supports single quotes, double quotes, and q-Quotes.
+    Parses the input lines, replacing EXEC SQL blocks with markers
+    and capturing their content for later restoration.
     """
-    escaped = False
-    i = 0
-    while i < len(line):
-        char = line[i]
+    captured_blocks = []
+    output_lines = []
+    inside_block = False
+    current_block = []
+    current_handler = None
+    marker_counter = 1  # Sequential counter for unique markers
 
-        # Handle escaping (only applicable outside of q-Quotes in Oracle Pro*C)
-        if escaped:
-            escaped = False
-            i += 1
-            continue
-
-        if char == '\\':
-            escaped = True
-            i += 1
-            continue
-
-        # Handle q-Quotes
-        if q_quote_delimiter:
-            if line[i:i + len(q_quote_delimiter)] == q_quote_delimiter:
-                return False, False  # q-Quote closes; we exit the context
-            i += 1
-            continue
-
-        # Detect the start of a q-Quote
-        if char == 'q' and i + 2 < len(line) and line[i + 1] in ("'", '"', '[', '(', '{', '<'):
-            # Find the closing delimiter
-            open_delim = line[i + 1]
-            close_delim = {'[': ']', '(': ')', '{': '}', '<': '>'}.get(open_delim, open_delim)
-            q_quote_delimiter = close_delim
-            i += 2
-            continue
-
-        # Toggle single/double quote context
-        if char in ("'", '"'):
-            if current_quote is None:
-                current_quote = char  # Entering a quote
-                inside_quotes = True
-            elif current_quote == char:
-                current_quote = None  # Exiting a quote
-                inside_quotes = False
-
-        # Semicolon ends the statement only outside quotes
-        if char == ';' and not inside_quotes and not q_quote_delimiter:
-            return True, False
-
-        i += 1
-
-    # Line ends; return whether we are inside any quote
-    return False, inside_quotes or bool(q_quote_delimiter)
-
-def mark_exec_sql(content):
-    """Replace EXEC SQL blocks with markers and store them."""
-    lines = content.split('\n')
-    exec_sql_segments = []
-    marked_lines = []
-    inside_exec_sql = False
-    current_sql_block = []
-    inside_quotes = False
-    counter = 1
-
-    for line in lines:
-        stripped_line = line.strip()
-        if inside_exec_sql:
-            current_sql_block.append(line)
-            is_complete, inside_quotes = is_complete_sql_statement(line, inside_quotes)
-            if is_complete:
-                # Save the full EXEC SQL block
-                exec_sql_segments.append((counter, '\n'.join(current_sql_block)))
-                marked_lines.append(get_marker(counter))
-                current_sql_block = []
-                inside_exec_sql = False
-                counter += 1
-        elif any(re.match(stripped_line) for re in [re_DECLARE_CURSOR, re_OPEN_CURSOR, re_FETCH_CURSOR, re_CLOSE_CURSOR]):
-            # Handle SQL Cursor Statements
-            exec_sql_segments.append((counter, line))
-            marked_lines.append(get_marker(counter))
-            counter += 1
-        elif match := re_EXEC_SQL.match(stripped_line):
-            inside_exec_sql = not stripped_line.endswith(';')
-            if inside_exec_sql:
-                current_sql_block.append(line)
-            else:
-                exec_sql_segments.append((counter, line))
-                prefix = ""
-                if declare := re_DECLARE.match(match.group(2)):
-                    prefix = "{ " if declare.group(1) == "BEGIN" else "} "
-                marked_lines.append(get_marker(counter, prefix))
-                counter += 1
+    for line_number, line in enumerate(lines, 1):
+        if inside_block:
+            stripped_line = line.strip()
+            current_block.append(line)  # Add the line to the current block
+            # if re.match(current_handler["end_pattern"], stripped_line):  # Check for termination
+            if ';' in stripped_line:
+                # Block has ended; replace it with a marker
+                marker = get_marker(marker_counter)
+                output_lines.append(marker)
+                captured_blocks.append(current_handler["action"](current_block))
+                marker_counter += 1
+                inside_block = False
+                current_block = []  # Reset the block
+                current_handler = None
         else:
-            marked_lines.append(line)
+            # Check if this line starts a new block
+            for construct, details in EXEC_SQL_REGISTRY.items():
+                if re.match(details["pattern"], line.strip()):
+                    if "end_pattern" in details:
+                        # Multi-line block detected
+                        inside_block = True
+                        current_block = [line]
+                        current_handler = details
+                    else:
+                        # Single-line match
+                        captured_blocks.append(details["action"]([line]))
+                        marker = get_marker(marker_counter)
+                        if 'BEGIN' in construct:
+                            marker = '{ ' + marker
+                        if 'END' in construct:
+                            marker = '} ' + marker
+                        output_lines.append(marker)
+                        marker_counter += 1
+                    break
+            else:
+                # Not part of a recognized block; pass through
+                output_lines.append(line)
 
-    if inside_exec_sql:
-        raise ValueError("Unterminated EXEC SQL block detected.")
+    if inside_block:
+        raise ValueError(
+            f"Unterminated EXEC SQL block detected at line {line_number}: {current_block[0]}"
+        )
 
-    return '\n'.join(marked_lines), exec_sql_segments
+    return output_lines, captured_blocks
 
-def ic (line):
-    match = re_INDENT.match(line)
-    indent = match.group(1)
-    content = match.group(2)
-    return (indent, content)
+def capture_single_line_exec_sql(line):
+    for construct, details in EXEC_SQL_REGISTRY.items():
+        if re.match(details["pattern"], line.strip()):
+            return details["action"]([line])
+    return None  # Return None if no match is found
 
-def restore_exec_sql(content, exec_sql_segments):
-    """Restore EXEC SQL blocks with proper alignment."""
+def restore_exec_sql_blocks(content, exec_sql_segments):
     lines = content.split('\n')
     restored_lines = []
+    expected_marker = 1  # Start with the first marker
 
     for line in lines:
-        stripped_line = line.strip()
-        if match := re_MARKER_PREFIX.match(stripped_line):
+        match = re_MARKER_PREFIX.match(line.strip())
+        if match:
             try:
-                # marker_number = int(line.split(':')[1])
                 marker_number = int(match.group(2))
-                block = exec_sql_segments[marker_number - 1][1]
-                # Restore with indentation
-                base_indent = len(line) - len(line.lstrip())
-                if '\n' not in block:
-                    (indent, content) = ic(block)
-                    restored_lines.append(" " * base_indent + content)
-                else:
-                    lines = block.split('\n')
-                    first = lines.pop(0)
-                    (leader, content) = ic(first)
-                    prior_indent = len(leader)
-                    delta = base_indent - prior_indent
-                    restored_lines.append(" " * base_indent + content)
-                    for line in lines:
-                        (indent, content) = ic(line)
-                        if delta < 0:
-                            restored_lines.append(line[-delta:])
-                        else:
-                            restored_lines.append(" "*delta +line)
-            except (IndexError, ValueError):
-                raise ValueError(f"Invalid or missing marker: {line}")
+                if marker_number != expected_marker:
+                    raise ValueError(f"Marker out of sequence: expected {expected_marker}, found {marker_number}")
+                # Restore the block corresponding to the marker
+                restored_lines.extend(exec_sql_segments[marker_number - 1])
+                expected_marker += 1
+            except (IndexError, ValueError) as e:
+                raise ValueError(f"Invalid or missing marker: {line}, Error: {e}")
         else:
             restored_lines.append(line)
 
-    return '\n'.join(restored_lines)
+    if expected_marker - 1 != len(exec_sql_segments):
+        raise ValueError("Not all markers were restored. Possible residual markers in the output.")
+
+    return "\n".join(restored_lines)
 
 def format_with_clang(content, clang_format_path="clang-format"):
     """Format content using clang-format."""
@@ -190,22 +206,17 @@ def process_file(input_file, output_file, clang_format_path="clang-format"):
     with open(input_file, 'r') as f:
         original_content = f.read()
 
-    try:
-        # Step 1: Mark EXEC SQL lines
-        marked_content, exec_sql_segments = mark_exec_sql(original_content)
+    # Step 1: Mark EXEC SQL lines
+    marked_content, exec_sql_segments = capture_exec_sql_blocks(original_content.splitlines())
 
-        # Step 2: Format using clang-format
-        formatted_content = format_with_clang(marked_content, clang_format_path)
+    # Step 2: Format using clang-format
+    formatted_content = format_with_clang("\n".join(marked_content), clang_format_path)
 
-        # Step 3: Restore EXEC SQL lines
-        final_content = restore_exec_sql(formatted_content, exec_sql_segments)
+    # Step 3: Restore EXEC SQL lines
+    final_content = restore_exec_sql_blocks(formatted_content, exec_sql_segments)
 
-        # Step 4: Write output to file
-        with open(output_file, 'w') as f:
-            f.write(final_content)
+    # Step 4: Write output to file
+    with open(output_file, 'w') as f:
+        f.write(final_content)
 
-        print(f"File processed successfully: {output_file}")
-
-    except Exception as e:
-        print(f"Error processing file: {e}")
-
+    print(f"File processed successfully: {output_file}")
