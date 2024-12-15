@@ -34,6 +34,8 @@ def capture_exec_sql_blocks(lines):
     current_handler = None
     current_construct = None
     current_pattern = None
+    current_construct = None
+    current_stripped_line = None
     marker_counter = 1  # Sequential counter for unique markers
 
     debug = "debug/sql"
@@ -45,41 +47,43 @@ def capture_exec_sql_blocks(lines):
         if inside_block:
             current_block.append(line)  # Add the line to the current block
             # TODO: should check END pattern but is often fails
-            if ';' in stripped_line:
+            if re.match(details["end_pattern"], stripped_line):
                 # Block has ended; replace it with a marker
                 marker = get_marker(marker_counter)
                 output_lines.append(marker)
                 captured_blocks.append(current_handler["action"](current_block))
                 with open("{}/{}".format(debug, marker_counter), "w") as f:
-                    f.write(("Construct:  '{}'\n".format(construct))
-                           +("Pattern:    '{}'\n".format(details["pattern"]))
-                            +("Stripped:  '{}'\n".format(current_stripped_line))
+                    f.write(("Construct:  '{}'\n".format(current_construct))
+                           +("Pattern:    '{}'\n".format(current_handler["pattern"]))
+                           +("EndPattern: '{}'\n\n".format(current_handler["end_pattern"]))
+                           +("Stripped:  '{}'\n\n".format(current_stripped_line))
                            +("\n".join(current_block)+"\n\n"))
                 marker_counter += 1
                 inside_block = False
                 current_block = []  # Reset the block
                 current_handler = None
                 current_construct = None
-                current_pattern = None
                 current_stripped_line = None
         else:
             for construct, details in EXEC_SQL_REGISTRY.items():
                 if re.match(details["pattern"], stripped_line):
+                    if "error" in details:
+                        raise ValueError("Unaccompanied block end marker detected at line {0}:\n{1}"
+                            .format(line_number, line))
                     if "end_pattern" in details:
                         # Multi-line block detected
                         inside_block = True
                         current_block = [line]
                         current_handler = details
                         current_construct = construct
-                        current_pattern = details["pattern"]
                         current_stripped_line = stripped_line
                     else:
                         # Single-line match
                         captured_blocks.append(details["action"]([line]))
                         with open("{}/{}".format(debug, marker_counter), "w") as f:
                             f.write(("Construct:  '{}'\n".format(construct))
-                                   +("Pattern:    '{}'\n".format(details["pattern"]))
-                                   +("Stripped:   '{}'\n".format(stripped_line))
+                                   +("Pattern:    '{}'\n\n".format(details["pattern"]))
+                                   +("Stripped:   '{}'\n\n".format(stripped_line))
                                    +(line)+"\n\n")
                         marker = get_marker(marker_counter)
                         if construct == "DECLARE SECTION - BEGIN":
@@ -94,7 +98,8 @@ def capture_exec_sql_blocks(lines):
 
     if inside_block:
         raise ValueError(
-            "Unterminated EXEC SQL block detected at line {0}: {1}".format(line_number, current_block[0])
+            "Unterminated EXEC SQL {0} detected at line {1}:\n{2}"
+                .format(current_construct, line_number, "\n".join(current_block))
         )
 
     return output_lines, captured_blocks
