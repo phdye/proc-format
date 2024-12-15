@@ -2,11 +2,30 @@
 
 set -e
 
+format=yes
+display=yes
+
+while [[ $# -gt 0 && "$1" =~ -* ]] ; do
+    case "$1" in
+        -n|--no-format|--current|--this)
+            format=no
+            display=no
+          ;;
+        -q|--quiet)
+            display=no
+          ;;
+        *)
+            break
+          ;;
+    esac
+    shift
+done
+
 if [ $# -le 0 ] ; then
     set examples/basic/unformated.pc
 fi
 
-log=/dn/errors.txt
+log=errors.txt
 out=debug/formated.pc
 sql=debug/sql
 
@@ -14,13 +33,17 @@ counter=0
 
 for in in "$@" ; do
 
-    rm -f ${out}
+    if [ "${format}" == "yes" ] ; then
 
-    ( export PYTHONPATH=$(realpath src) && \
-          ( set -x && python -m proc_format ${in} ${out} 2>&1 ) \
-        ) | tee ${log}
+        rm -f ${out}
 
-    if [ -r ${out} ] ; then
+        ( export PYTHONPATH=$(realpath src) && \
+              ( set -x && python -m proc_format ${in} ${out} 2>&1 ) \
+            ) | tee ${log}
+
+    fi
+
+    if [[ "${display}" == "yes" && -r ${out} ]] ; then
         cat ${out}
         echo
         echo
@@ -30,16 +53,44 @@ for in in "$@" ; do
         echo '*** No EXEC SQL extracted !'        
         echo ''
     else
-        # max=$(cd ${sql} && args [0-9]* | sort -n | tail -1 )
+        errors=debug/errors && mkdir -p ${errors}
+        
+        min=$(cd ${sql} && ls -1 [0-9]* | sort -n | head -1 )
+        max=$(cd ${sql} && ls -1 [0-9]* | sort -n | tail -1 )
         # echo "SQL max : ${max}"
         # echo
-    
-        for segment in ${sql}/[0-9]* ; do
-            n=$(basename ${segment})
+
+        idx=${min}
+        while [ ${idx} -le ${max} ] ; do
+            echo "Sql:  ${idx} of ${max}"
+            echo
+            segment=${sql}/${idx}
+            #cho "Construct:  'ORACLE OPTION'
+            echo "Segment:    '${segment}'"
             cat ${segment}
-            # if [ "$n" -lt "${max}" ] ; then
-            #     read -p "Next segment ?  " nada
-            # fi            
+            read -p "Action [Next] ?  " action
+            set -x
+            action=$(echo "${action}" | tr A-Z a-z)
+            case "${action}" in
+                err|error|save)
+                    cp ${segment} ${errors}/.
+                    action=next
+                    ;;
+                p|b|prev|prior|back)
+                    cp ${segment} ${errors}/.
+                    ;;
+                q|quit|e|exit)
+                    exit 0
+                    ;;
+                "")
+                    action=next
+                    break
+                    ;;
+            esac
+            if [ "${action}" == "next" ] ; then
+                idx=$((idx+1))
+            fi
+		    clear
         done
     fi
 
