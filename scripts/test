@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Set default log file path
+LOGFILE=/dn/errors.txt
+
+if [ $# -le 0 ]; then
+    set tests/
+fi
+
+# Run tests with PYTHONPATH set and capture output
+( PYTHONPATH=src pytest "$@" 2>&1 ) | tee "$LOGFILE"
+
+# Check if pytest encountered any errors
+if egrep -q "(ERROR|FAILED)" "$LOGFILE"; then
+    echo "Errors found during testing. Check $LOGFILE for details."
+    exit 1
+else
+    echo "All tests passed."
+    exit 0
+fi

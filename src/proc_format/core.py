@@ -1,6 +1,15 @@
+
+# Restructured Proc Formatter
+# Original functionality preserved, with modularized and testable structure
+
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+# --- Core Logic ---
+
 #!/usr/bin/env python3
 
-import argparse
 import subprocess
 import os
 import re
@@ -9,22 +18,72 @@ re_EXEC_SQL  = re.compile(r'EXEC\s\s*SQL\b(\s*(.*))?')
 re_DECLARE   = re.compile(r'\s*(BEGIN|END)\s\s*DECLARE\s\s*SECTION\s*[;]')
 re_INDENT    = re.compile(r'^(\s*)(.*)')
 
+# Regex patterns for SQL Cursor Management
+re_DECLARE_CURSOR = re.compile(r'EXEC\s+SQL\s+DECLARE\s+\w+\s+CURSOR\s+FOR\b')
+re_OPEN_CURSOR = re.compile(r'EXEC\s+SQL\s+OPEN\s+\w+\b')
+re_FETCH_CURSOR = re.compile(r'EXEC\s+SQL\s+FETCH\s+\w+\b')
+re_CLOSE_CURSOR = re.compile(r'EXEC\s+SQL\s+CLOSE\s+\w+\b')
+
 MARKER_PREFIX = "// EXEC SQL MARKER"
 re_MARKER_PREFIX = re.compile(r"([{}])?\s*//\s\s*EXEC\s\s*SQL\s\s*MARKER\s\s*:(\d+):")
 
 def get_marker(n : int, prefix=""):
     return f"{prefix}{MARKER_PREFIX} :{n}:"
 
-def is_complete_sql_statement(line, inside_quotes=False):
-    """Check if a line ends an EXEC SQL block, considering string literals."""
+def is_complete_sql_statement(line, inside_quotes=False, current_quote=None, q_quote_delimiter=None):
+    """
+    Check if a line ends an EXEC SQL block, considering Oracle Pro*C quoting rules.
+    Supports single quotes, double quotes, and q-Quotes.
+    """
     escaped = False
-    for char in line:
-        if char in ("'", '"') and not escaped:
-            inside_quotes = not inside_quotes
-        escaped = char == '\\' and not escaped
-        if char == ';' and not inside_quotes:
-            return True, inside_quotes
-    return False, inside_quotes
+    i = 0
+    while i < len(line):
+        char = line[i]
+
+        # Handle escaping (only applicable outside of q-Quotes in Oracle Pro*C)
+        if escaped:
+            escaped = False
+            i += 1
+            continue
+
+        if char == '\\':
+            escaped = True
+            i += 1
+            continue
+
+        # Handle q-Quotes
+        if q_quote_delimiter:
+            if line[i:i + len(q_quote_delimiter)] == q_quote_delimiter:
+                return False, False  # q-Quote closes; we exit the context
+            i += 1
+            continue
+
+        # Detect the start of a q-Quote
+        if char == 'q' and i + 2 < len(line) and line[i + 1] in ("'", '"', '[', '(', '{', '<'):
+            # Find the closing delimiter
+            open_delim = line[i + 1]
+            close_delim = {'[': ']', '(': ')', '{': '}', '<': '>'}.get(open_delim, open_delim)
+            q_quote_delimiter = close_delim
+            i += 2
+            continue
+
+        # Toggle single/double quote context
+        if char in ("'", '"'):
+            if current_quote is None:
+                current_quote = char  # Entering a quote
+                inside_quotes = True
+            elif current_quote == char:
+                current_quote = None  # Exiting a quote
+                inside_quotes = False
+
+        # Semicolon ends the statement only outside quotes
+        if char == ';' and not inside_quotes and not q_quote_delimiter:
+            return True, False
+
+        i += 1
+
+    # Line ends; return whether we are inside any quote
+    return False, inside_quotes or bool(q_quote_delimiter)
 
 def mark_exec_sql(content):
     """Replace EXEC SQL blocks with markers and store them."""
@@ -48,6 +107,11 @@ def mark_exec_sql(content):
                 current_sql_block = []
                 inside_exec_sql = False
                 counter += 1
+        elif any(re.match(stripped_line) for re in [re_DECLARE_CURSOR, re_OPEN_CURSOR, re_FETCH_CURSOR, re_CLOSE_CURSOR]):
+            # Handle SQL Cursor Statements
+            exec_sql_segments.append((counter, line))
+            marked_lines.append(get_marker(counter))
+            counter += 1
         elif match := re_EXEC_SQL.match(stripped_line):
             inside_exec_sql = not stripped_line.endswith(';')
             if inside_exec_sql:
@@ -112,13 +176,13 @@ def restore_exec_sql(content, exec_sql_segments):
 
 def format_with_clang(content, clang_format_path="clang-format"):
     """Format content using clang-format."""
-    with open("f-before.c", "w") as f: f.write(content)
+    with open("debug/f-before.c", "w") as f: f.write(content)
     process = subprocess.run([clang_format_path], input=content, text=True,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if process.returncode != 0:
         raise RuntimeError(f"Clang-format failed: {process.stderr}")
     output = process.stdout
-    with open("f-after.c", "w") as f: f.write(output)
+    with open("debug/f-after.c", "w") as f: f.write(output)
     return output
 
 def process_file(input_file, output_file, clang_format_path="clang-format"):
@@ -145,18 +209,3 @@ def process_file(input_file, output_file, clang_format_path="clang-format"):
     except Exception as e:
         print(f"Error processing file: {e}")
 
-def main():
-    parser = argparse.ArgumentParser(description="Format Pro*C files by aligning EXEC SQL and formatting C code.")
-    parser.add_argument("input_file", help="Input file to process.")
-    parser.add_argument("output_file", help="Output file to save the formatted content.")
-    parser.add_argument("--clang-format", default="clang-format", help="Path to clang-format executable.")
-    args = parser.parse_args()
-
-    if not os.path.exists(args.input_file):
-        print(f"Error: Input file does not exist: {args.input_file}")
-        return
-
-    process_file(args.input_file, args.output_file, clang_format_path=args.clang_format)
-
-if __name__ == "__main__":
-    main()

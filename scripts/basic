@@ -1,0 +1,9 @@
+#!/bin/bash
+
+in=examples/basic/unformated.pc 
+out=debug/formated.pc
+
+PYTHONPATH=$(realpath src) python -m proc_format ${in} ${out}
+
+cat ${out}
+

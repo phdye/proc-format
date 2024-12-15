@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# tar up the current directory for AI consumption
+# exclude files and directories that are not needed
+
+name=${PWD##*/}
+
+for clean in '( yes | clean 2>&1 ) > /dev/null' 'x/cln' ; do
+    echo "+ ${clean}"
+    eval "${clean}"
+    echo
+done
+
+( set -x && cd .. && tar cvf /dn/${name}.tar -X${name}/.tar-exclude ${name} )
