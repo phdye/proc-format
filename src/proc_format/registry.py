@@ -1,3 +1,16 @@
+
+# Registry for Modular EXEC SQL Handling
+# --------------------------------------
+# This module defines a registry (EXEC_SQL_REGISTRY) for handling different EXEC SQL constructs.
+# Each entry specifies a regular expression pattern to match a construct and an optional "end_pattern"
+# for multi-line constructs. The "action" defines how the construct's content is processed.
+#
+# Notes:
+# - The braces '{' and '}' for BEGIN/END DECLARE SECTION are inserted to facilitate C formatting
+#   but are removed during the restoration phase.
+# - The patterns for single-line and multi-line constructs ensure the parsing logic in core.py
+#   functions correctly for a variety of Pro*C statements.
+
 # --- Registry for Modular EXEC SQL Handling ---
 
 # Since we are not formating the EXEC SQL lines, simply
