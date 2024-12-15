@@ -99,7 +99,7 @@ def capture_exec_sql_blocks(lines):
     return output_lines, captured_blocks
 
 def restore_exec_sql_blocks(content, exec_sql_segments):
-    lines = content.split('\n')
+    lines = content.decode().split('\n')
     restored_lines = []
     expected_marker = 1  # Start with the first marker
 
@@ -139,8 +139,10 @@ def format_with_clang(content, clang_format_path="clang-format"):
     with open("debug/f-before.c", "w") as f:
         f.write(content)
     popen_additional_args = {}
-    if sys.version_info >= (3, 7, 0):
+    if sys.version_info >= (3, 7, 0): # Python ? 3.2.5
         popen_additional_args["text"] = True
+    else:
+        content = content.encode()
     process = subprocess.Popen([clang_format_path],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             **popen_additional_args)
@@ -148,7 +150,10 @@ def format_with_clang(content, clang_format_path="clang-format"):
     if process.returncode != 0:
         raise RuntimeError("Clang-format failed: {0}".format(error))
     with open("debug/f-after.c", "w") as f:
-        f.write(output)
+        if sys.version_info >= (3, 7, 0):
+            f.write(output)
+        else:
+            f.write(output.decode())
     return output
 
 def process_file(input_file, output_file, clang_format_path="clang-format"):
