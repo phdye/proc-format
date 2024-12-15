@@ -5,10 +5,15 @@ import subprocess
 import os
 import re
 
-MARKER_PREFIX = "// EXEC SQL MARKER"
+re_EXEC_SQL  = re.compile(r'EXEC\s\s*SQL\b(\s*(.*))?')
+re_DECLARE   = re.compile(r'\s*(BEGIN|END)\s\s*DECLARE\s\s*SECTION\s*[;]')
+re_INDENT    = re.compile(r'^(\s*)(.*)')
 
-def get_marker(n : int):
-    return f"{MARKER_PREFIX} :{n}:"
+MARKER_PREFIX = "// EXEC SQL MARKER"
+re_MARKER_PREFIX = re.compile(r"([{}])?\s*//\s\s*EXEC\s\s*SQL\s\s*MARKER\s\s*:(\d+):")
+
+def get_marker(n : int, prefix=""):
+    return f"{prefix}{MARKER_PREFIX} :{n}:"
 
 def is_complete_sql_statement(line, inside_quotes=False):
     """Check if a line ends an EXEC SQL block, considering string literals."""
@@ -22,7 +27,7 @@ def is_complete_sql_statement(line, inside_quotes=False):
     return False, inside_quotes
 
 def mark_exec_sql(content):
-    """Replace EXEC SQL multi-line blocks with markers and store them."""
+    """Replace EXEC SQL blocks with markers and store them."""
     lines = content.split('\n')
     exec_sql_segments = []
     marked_lines = []
@@ -32,6 +37,7 @@ def mark_exec_sql(content):
     counter = 1
 
     for line in lines:
+        stripped_line = line.strip()
         if inside_exec_sql:
             current_sql_block.append(line)
             is_complete, inside_quotes = is_complete_sql_statement(line, inside_quotes)
@@ -42,13 +48,16 @@ def mark_exec_sql(content):
                 current_sql_block = []
                 inside_exec_sql = False
                 counter += 1
-        elif line.strip().startswith("EXEC SQL"):
-            inside_exec_sql = not line.endswith(';')
+        elif match := re_EXEC_SQL.match(stripped_line):
+            inside_exec_sql = not stripped_line.endswith(';')
             if inside_exec_sql:
                 current_sql_block.append(line)
             else:
                 exec_sql_segments.append((counter, line))
-                marked_lines.append(get_marker(counter))
+                prefix = ""
+                if declare := re_DECLARE.match(match.group(2)):
+                    prefix = "{ " if declare.group(1) == "BEGIN" else "} "
+                marked_lines.append(get_marker(counter, prefix))
                 counter += 1
         else:
             marked_lines.append(line)
@@ -58,16 +67,42 @@ def mark_exec_sql(content):
 
     return '\n'.join(marked_lines), exec_sql_segments
 
+def ic (line):
+    match = re_INDENT.match(line)
+    indent = match.group(1)
+    content = match.group(2)
+    return (indent, content)
+
 def restore_exec_sql(content, exec_sql_segments):
-    """Restore EXEC SQL lines in place of their markers."""
+    """Restore EXEC SQL blocks with proper alignment."""
     lines = content.split('\n')
     restored_lines = []
 
     for line in lines:
-        if line.strip().startswith(MARKER_PREFIX):
+        stripped_line = line.strip()
+        if match := re_MARKER_PREFIX.match(stripped_line):
             try:
-                marker_number = int(line.split(':')[1])
-                restored_lines.append(exec_sql_segments[marker_number - 1][1])
+                # marker_number = int(line.split(':')[1])
+                marker_number = int(match.group(2))
+                block = exec_sql_segments[marker_number - 1][1]
+                # Restore with indentation
+                base_indent = len(line) - len(line.lstrip())
+                if '\n' not in block:
+                    (indent, content) = ic(block)
+                    restored_lines.append(" " * base_indent + content)
+                else:
+                    lines = block.split('\n')
+                    first = lines.pop(0)
+                    (leader, content) = ic(first)
+                    prior_indent = len(leader)
+                    delta = base_indent - prior_indent
+                    restored_lines.append(" " * base_indent + content)
+                    for line in lines:
+                        (indent, content) = ic(line)
+                        if delta < 0:
+                            restored_lines.append(line[-delta:])
+                        else:
+                            restored_lines.append(" "*delta +line)
             except (IndexError, ValueError):
                 raise ValueError(f"Invalid or missing marker: {line}")
         else:
