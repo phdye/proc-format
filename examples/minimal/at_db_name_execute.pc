@@ -1,0 +1,13 @@
+
+#include <stdio.h>
+
+int main() {
+    printf("Executing a command for a specific database...\n");
+
+    EXEC SQL AT :db-name EXECUTE
+        IMMEDIATE 'CREATE TABLE temp_table (id INT, name VARCHAR(100))';
+
+    printf("Command executed successfully for database.\n");
+
+    return 0;
+}

@@ -127,6 +127,30 @@ EXEC_SQL_REGISTRY = {
         "action": lambda lines: lines  # Maintain original content
     },
 
+    # Database-specific construct handling (e.g., EXEC SQL AT :db-name)
+    "AT DB-NAME": {
+        "pattern": r"EXEC\s+SQL\s+AT\b\s+:\w+\b.*;",
+        "action": lambda lines: lines  # Capture as-is
+    },
+    
+    # Variants of CONNECT statements
+    "CONNECT IDENTIFIED BY": {
+        "pattern": r"EXEC\s+SQL\s+CONNECT\b.*IDENTIFIED\s+BY\s+:\w+.*;",
+        "action": lambda lines: lines  # Capture as-is
+    },
+    
+    # Specialized constructs like ORACLE OPTION
+    "ORACLE OPTION": {
+        "pattern": r"EXEC\s+ORACLE\s+OPTION\b.*;",
+        "action": lambda lines: lines  # Capture as-is
+    },
+
+    # General SQL queries (dynamic or freeform)
+    "DYNAMIC SQL QUERY": {
+        "pattern": r"EXEC\s+SQL\s+(?!WHENEVER|DECLARE|COMMIT|ROLLBACK|CONNECT|INCLUDE)\w+.*;",
+        "action": lambda lines: lines  # Capture as-is
+    },
+
     # END-EXEC for COBOL Compatibility
     "END-EXEC": {
         "pattern": r"END-EXEC\b(.*);",

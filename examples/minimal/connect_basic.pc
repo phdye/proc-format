@@ -1,0 +1,13 @@
+#include <stdio.h>
+
+int main() {
+    const char *username = "user";
+
+    printf("Connecting to the database with basic parameters...\n");
+
+    EXEC SQL CONNECT :username;
+
+    printf("Database connection established successfully.\n");
+
+    return 0;
+}

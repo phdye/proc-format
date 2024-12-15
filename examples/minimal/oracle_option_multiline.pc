@@ -1,0 +1,15 @@
+#include <stdio.h>
+
+int main() {
+    printf("Setting Oracle options with multi-line syntax...\n");
+
+    EXEC ORACLE OPTION (
+        bindsize = 1000,
+        arraysize = 50,
+        prefetch = 10
+    );
+
+    printf("Oracle options set successfully.\n");
+
+    return 0;
+}

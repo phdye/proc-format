@@ -1,0 +1,12 @@
+
+#include <stdio.h>
+
+int main() {
+    printf("Committing a transaction for a specific database...\n");
+
+    EXEC SQL AT :db-name COMMIT;
+
+    printf("Transaction committed successfully for database.\n");
+
+    return 0;
+}

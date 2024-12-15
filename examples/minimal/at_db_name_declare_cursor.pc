@@ -1,0 +1,14 @@
+
+#include <stdio.h>
+
+int main() {
+    printf("Declaring a cursor for a specific database context...\n");
+
+    EXEC SQL AT :db-name DECLARE emp_cursor CURSOR FOR
+        SELECT employee_id, employee_name
+        FROM employees;
+
+    printf("Cursor declared successfully for database.\n");
+
+    return 0;
+}

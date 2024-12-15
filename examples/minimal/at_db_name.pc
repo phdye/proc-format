@@ -1,0 +1,19 @@
+
+#include <stdio.h>
+
+int main() {
+    char employee_name[100];
+    int employee_id = 101;
+
+    printf("Executing a database-specific operation...\n");
+
+    EXEC SQL AT :db-name
+        SELECT employee_name
+        INTO :employee_name
+        FROM employees
+        WHERE employee_id = :employee_id;
+
+    printf("Employee name: %s\n", employee_name);
+
+    return 0;
+}

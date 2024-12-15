@@ -1,0 +1,18 @@
+
+#include <stdio.h>
+
+int main() {
+    printf("Setting up 'not found' handling with a goto...\n");
+
+    EXEC SQL WHENEVER NOT FOUND GOTO handle_not_found;
+
+    printf("Executing SQL statement...\n");
+
+    // Simulated SQL logic here
+
+    printf("No data found. Redirecting...\n");
+    handle_not_found:
+    printf("Handled 'not found' condition.\n");
+
+    return 0;
+}

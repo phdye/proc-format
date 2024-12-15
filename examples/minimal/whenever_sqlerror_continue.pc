@@ -1,0 +1,16 @@
+
+#include <stdio.h>
+
+int main() {
+    printf("Setting up 'SQL error' handling to continue on errors...\n");
+
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+
+    printf("Executing SQL statement...\n");
+
+    // Simulated SQL logic here
+
+    printf("SQL execution completed with 'continue on error' setup.\n");
+
+    return 0;
+}

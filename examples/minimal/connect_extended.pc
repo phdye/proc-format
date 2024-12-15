@@ -1,0 +1,15 @@
+#include <stdio.h>
+
+int main() {
+    const char *username = "user";
+    const char *password = "password";
+    const char *connection_string = "my_database";
+
+    printf("Connecting to the database with extended parameters...\n");
+
+    EXEC SQL CONNECT :username IDENTIFIED BY :password USING :connection_string;
+
+    printf("Database connection established successfully.\n");
+
+    return 0;
+}

@@ -3,14 +3,12 @@
 int main() {
     const char *username = "user";
     const char *password = "password";
-    const char *database = "db";
 
-    printf("Connecting to database using default server...\n");
+    printf("Connecting to the database with username and password...\n");
+
     EXEC SQL CONNECT :username IDENTIFIED BY :password;
 
-    printf("Connecting to database on a specific server...\n");
-    EXEC SQL CONNECT :username IDENTIFIED BY :password AT :database;
+    printf("Database connection established successfully.\n");
 
-    printf("Database connections established.\n");
     return 0;
 }
