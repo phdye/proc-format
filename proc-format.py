@@ -3,26 +3,60 @@
 import argparse
 import subprocess
 import os
+import re
 
 MARKER_PREFIX = "// EXEC SQL MARKER"
 
 def get_marker(n : int):
     return f"{MARKER_PREFIX} :{n}:"
 
+
+def is_complete_sql_statement(line, inside_quotes=False):
+    """Check if a line ends an EXEC SQL block, considering string literals."""
+    escaped = False
+    for char in line:
+        if char in ("'", '"') and not escaped:
+            inside_quotes = not inside_quotes
+        escaped = char == '\\' and not escaped
+        if char == ';' and not inside_quotes:
+            return True, inside_quotes
+    return False, inside_quotes
+
+
 def mark_exec_sql(content):
-    """Replace EXEC SQL lines with markers and store them."""
+    """Replace EXEC SQL multi-line blocks with markers and store them."""
     lines = content.split('\n')
     exec_sql_segments = []
     marked_lines = []
+    inside_exec_sql = False
+    current_sql_block = []
+    inside_quotes = False
     counter = 1
 
-    for line in lines:
-        if "EXEC SQL" in line:
-            exec_sql_segments.append((counter, line))
-            marked_lines.append(get_marker(counter))
-            counter += 1
+    for line in lines: 
+        if inside_exec_sql:
+            current_sql_block.append(line)
+            is_complete, inside_quotes = is_complete_sql_statement(line, inside_quotes)
+            if is_complete:
+                # Save the full EXEC SQL block
+                exec_sql_segments.append((counter, '\n'.join(current_sql_block)))
+                marked_lines.append(get_marker(counter))
+                current_sql_block = []
+                inside_exec_sql = False
+                counter += 1
+        elif line.strip().startswith("EXEC SQL"):
+            inside_exec_sql = not line.endswith(';')
+            if inside_exec_sql:
+                current_sql_block.append(line)
+            else:
+                exec_sql_segments.append((counter, line))
+                marked_lines.append(get_marker(counter))
+                counter += 1
         else:
             marked_lines.append(line)
+
+    if inside_exec_sql:
+        raise ValueError("Unterminated EXEC SQL block detected.")
 
     return '\n'.join(marked_lines), exec_sql_segments
 
@@ -47,9 +81,7 @@ def restore_exec_sql(content, exec_sql_segments):
 
 def format_with_clang(content, clang_format_path="clang-format"):
     """Format content using clang-format."""
-
     with open("f-before.c", "w") as f: f.write(content)
-
     process = subprocess.run([clang_format_path], input=content, text=True,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if process.returncode != 0:
