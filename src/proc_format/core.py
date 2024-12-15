@@ -11,7 +11,7 @@ MARKER_PREFIX = "// EXEC SQL MARKER"
 re_MARKER_PREFIX = re.compile(r"([{}])?\s*//\s\s*EXEC\s\s*SQL\s\s*MARKER\s\s*:(\d+):")
 
 def get_marker(n):
-    return f"{MARKER_PREFIX} :{n}:"
+    return "{0} :{1}:".format(MARKER_PREFIX, n)
 
 def process_declare_section(lines):
     # Add curly braces for formatting and maintain original content
@@ -19,7 +19,6 @@ def process_declare_section(lines):
     processed_lines.extend([line.strip() for line in lines[1:-1]])  # Inner content
     processed_lines.append("} // EXEC SQL DECLARE SECTION")
     return processed_lines
-
 
 def capture_exec_sql_blocks(lines):
     """
@@ -37,7 +36,6 @@ def capture_exec_sql_blocks(lines):
         if inside_block:
             stripped_line = line.strip()
             current_block.append(line)  # Add the line to the current block
-            # if re.match(current_handler["end_pattern"], stripped_line):  # Check for termination
             if ';' in stripped_line:
                 # Block has ended; replace it with a marker
                 marker = get_marker(marker_counter)
@@ -48,7 +46,6 @@ def capture_exec_sql_blocks(lines):
                 current_block = []  # Reset the block
                 current_handler = None
         else:
-            # Check if this line starts a new block
             for construct, details in EXEC_SQL_REGISTRY.items():
                 if re.match(details["pattern"], line.strip()):
                     if "end_pattern" in details:
@@ -61,28 +58,21 @@ def capture_exec_sql_blocks(lines):
                         captured_blocks.append(details["action"]([line]))
                         marker = get_marker(marker_counter)
                         if 'BEGIN' in construct:
-                            marker = '{ ' + marker
+                            marker = '{{ {0}'.format(marker)
                         if 'END' in construct:
-                            marker = '} ' + marker
+                            marker = '}} {0}'.format(marker)
                         output_lines.append(marker)
                         marker_counter += 1
                     break
             else:
-                # Not part of a recognized block; pass through
                 output_lines.append(line)
 
     if inside_block:
         raise ValueError(
-            f"Unterminated EXEC SQL block detected at line {line_number}: {current_block[0]}"
+            "Unterminated EXEC SQL block detected at line {0}: {1}".format(line_number, current_block[0])
         )
 
     return output_lines, captured_blocks
-
-def capture_single_line_exec_sql(line):
-    for construct, details in EXEC_SQL_REGISTRY.items():
-        if re.match(details["pattern"], line.strip()):
-            return details["action"]([line])
-    return None  # Return None if no match is found
 
 def restore_exec_sql_blocks(content, exec_sql_segments):
     lines = content.split('\n')
@@ -95,12 +85,11 @@ def restore_exec_sql_blocks(content, exec_sql_segments):
             try:
                 marker_number = int(match.group(2))
                 if marker_number != expected_marker:
-                    raise ValueError(f"Marker out of sequence: expected {expected_marker}, found {marker_number}")
-                # Restore the block corresponding to the marker
+                    raise ValueError("Marker out of sequence: expected {0}, found {1}".format(expected_marker, marker_number))
                 restored_lines.extend(exec_sql_segments[marker_number - 1])
                 expected_marker += 1
             except (IndexError, ValueError) as e:
-                raise ValueError(f"Invalid or missing marker: {line}, Error: {e}")
+                raise ValueError("Invalid or missing marker: {0}, Error: {1}".format(line, e))
         else:
             restored_lines.append(line)
 
@@ -111,13 +100,14 @@ def restore_exec_sql_blocks(content, exec_sql_segments):
 
 def format_with_clang(content, clang_format_path="clang-format"):
     """Format content using clang-format."""
-    with open("debug/f-before.c", "w") as f: f.write(content)
-    process = subprocess.run([clang_format_path], input=content, text=True,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    with open("debug/f-before.c", "w") as f:
+        f.write(content)
+    process = subprocess.Popen([clang_format_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    output, error = process.communicate(input=content)
     if process.returncode != 0:
-        raise RuntimeError(f"Clang-format failed: {process.stderr}")
-    output = process.stdout
-    with open("debug/f-after.c", "w") as f: f.write(output)
+        raise RuntimeError("Clang-format failed: {0}".format(error))
+    with open("debug/f-after.c", "w") as f:
+        f.write(output)
     return output
 
 def process_file(input_file, output_file, clang_format_path="clang-format"):
@@ -138,4 +128,4 @@ def process_file(input_file, output_file, clang_format_path="clang-format"):
     with open(output_file, 'w') as f:
         f.write(final_content)
 
-    print(f"File processed successfully: {output_file}")
+    print("File processed successfully: {0}".format(output_file))
