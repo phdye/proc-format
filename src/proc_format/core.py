@@ -36,6 +36,8 @@ def capture_exec_sql_blocks(lines):
     shutil.rmtree(debug, ignore_errors=True)
     os.mkdir(debug)
 
+    print("- Capture EXEC SQL segments ...")
+
     for line_number, line in enumerate(lines, 1):
         stripped_line = line.strip()
         if inside_block:
@@ -103,6 +105,8 @@ def restore_exec_sql_blocks(content, exec_sql_segments):
     restored_lines = []
     expected_marker = 1  # Start with the first marker
 
+    print("- Restore EXEC SQL segments ...")
+
     for line in lines:
         match = re_MARKER_PREFIX.match(line.strip())
         if match:
@@ -136,6 +140,7 @@ def restore_exec_sql_blocks(content, exec_sql_segments):
 
 def format_with_clang(content, clang_format_path="clang-format"):
     """Format content using clang-format."""
+    print("- Apply clang-format to C code content ...")
     with open("debug/f-before.c", "w") as f:
         f.write(content)
     popen_additional_args = {}
@@ -158,6 +163,9 @@ def format_with_clang(content, clang_format_path="clang-format"):
 
 def process_file(input_file, output_file, clang_format_path="clang-format"):
     """Main function to process the file."""
+
+    print("Formatting: {0}".format(input_file))
+
     with open(input_file, 'r') as f:
         original_content = f.read()
 
