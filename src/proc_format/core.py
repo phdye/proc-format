@@ -60,6 +60,7 @@ def capture_exec_sql_blocks(lines):
                 current_handler = None
                 current_construct = None
                 current_stripped_line = None
+                print("b", end="")
         else:
             for construct, details in EXEC_SQL_REGISTRY.items():
                 if re.match(details["pattern"], stripped_line):
@@ -88,9 +89,11 @@ def capture_exec_sql_blocks(lines):
                             marker = '} ' + marker
                         output_lines.append(marker)
                         marker_counter += 1
+                        print("s", end="")
                     break
             else:
                 output_lines.append(line)
+    print()
 
     if inside_block:
         raise ValueError(
@@ -128,10 +131,13 @@ def restore_exec_sql_blocks(content, exec_sql_segments):
                         # this_indent = len(line) - len(line.lstrip()) + delta
                         restored_lines.append(" " * more + line[-less:])
                 expected_marker += 1
+                print(".", end="")
             except (IndexError, ValueError) as e:
                 raise ValueError("Invalid or missing marker: {0}, Error: {1}".format(line, e))
         else:
             restored_lines.append(line)
+
+    print()
 
     if expected_marker - 1 != len(exec_sql_segments):
         raise ValueError("Not all markers were restored. Possible residual markers in the output.")
