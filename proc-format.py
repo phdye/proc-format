@@ -10,7 +10,6 @@ MARKER_PREFIX = "// EXEC SQL MARKER"
 def get_marker(n : int):
     return f"{MARKER_PREFIX} :{n}:"
 
-
 def is_complete_sql_statement(line, inside_quotes=False):
     """Check if a line ends an EXEC SQL block, considering string literals."""
     escaped = False
@@ -22,7 +21,6 @@ def is_complete_sql_statement(line, inside_quotes=False):
             return True, inside_quotes
     return False, inside_quotes
 
-
 def mark_exec_sql(content):
     """Replace EXEC SQL multi-line blocks with markers and store them."""
     lines = content.split('\n')
@@ -33,7 +31,7 @@ def mark_exec_sql(content):
     inside_quotes = False
     counter = 1
 
-    for line in lines: 
+    for line in lines:
         if inside_exec_sql:
             current_sql_block.append(line)
             is_complete, inside_quotes = is_complete_sql_statement(line, inside_quotes)
@@ -60,7 +58,6 @@ def mark_exec_sql(content):
 
     return '\n'.join(marked_lines), exec_sql_segments
 
-
 def restore_exec_sql(content, exec_sql_segments):
     """Restore EXEC SQL lines in place of their markers."""
     lines = content.split('\n')
@@ -78,7 +75,6 @@ def restore_exec_sql(content, exec_sql_segments):
 
     return '\n'.join(restored_lines)
 
-
 def format_with_clang(content, clang_format_path="clang-format"):
     """Format content using clang-format."""
     with open("f-before.c", "w") as f: f.write(content)
@@ -89,7 +85,6 @@ def format_with_clang(content, clang_format_path="clang-format"):
     output = process.stdout
     with open("f-after.c", "w") as f: f.write(output)
     return output
-
 
 def process_file(input_file, output_file, clang_format_path="clang-format"):
     """Main function to process the file."""
@@ -115,7 +110,6 @@ def process_file(input_file, output_file, clang_format_path="clang-format"):
     except Exception as e:
         print(f"Error processing file: {e}")
 
-
 def main():
     parser = argparse.ArgumentParser(description="Format Pro*C files by aligning EXEC SQL and formatting C code.")
     parser.add_argument("input_file", help="Input file to process.")
@@ -128,7 +122,6 @@ def main():
         return
 
     process_file(args.input_file, args.output_file, clang_format_path=args.clang_format)
-
 
 if __name__ == "__main__":
     main()
