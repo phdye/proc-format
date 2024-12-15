@@ -3,13 +3,13 @@
 set -e
 
 if [ $# -le 0 ] ; then
-    in=examples/basic/unformated.pc
+    in=examples/basic/unformatted.pc
 else
     in="$1"
 fi
 
-log=/dn/errors.txt
-out=debug/formated.pc
+log=errors.txt
+out=debug/formatted.pc
 
 rm -f ${out}
 

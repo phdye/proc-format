@@ -6,6 +6,7 @@ import logging
 import shutil
 
 from .registry import EXEC_SQL_REGISTRY
+from .registry import re_DECLARE_BEGIN, re_DECLARE_END
 
 logging.basicConfig(level=logging.INFO)
 
@@ -14,13 +15,6 @@ re_MARKER_PREFIX = re.compile(r"([{}])?\s*//\s\s*EXEC\s\s*SQL\s\s*MARKER\s\s*:(\
 
 def get_marker(n):
     return "{0} :{1}:".format(MARKER_PREFIX, n)
-
-def process_declare_section(lines):
-    # Add curly braces for formatting and maintain original content
-    processed_lines = ["{ // EXEC SQL DECLARE SECTION"]
-    processed_lines.extend([line.strip() for line in lines[1:-1]])  # Inner content
-    processed_lines.append("} // EXEC SQL DECLARE SECTION")
-    return processed_lines
 
 def capture_exec_sql_blocks(lines):
     """
@@ -47,7 +41,7 @@ def capture_exec_sql_blocks(lines):
         if inside_block:
             current_block.append(line)  # Add the line to the current block
             # TODO: should check END pattern but is often fails
-            if re.match(details["end_pattern"], stripped_line):
+            if re.match(current_handler["end_pattern"], stripped_line):
                 # Block has ended; replace it with a marker
                 marker = get_marker(marker_counter)
                 output_lines.append(marker)
@@ -86,10 +80,10 @@ def capture_exec_sql_blocks(lines):
                                    +("Stripped:   '{}'\n\n".format(stripped_line))
                                    +(line)+"\n\n")
                         marker = get_marker(marker_counter)
-                        if construct == "DECLARE SECTION - BEGIN":
-                            marker = '{{ {0}'.format(marker)
-                        if construct == "DECLARE SECTION - END":
-                            marker = '}} {0}'.format(marker)
+                        if re.match(re_DECLARE_BEGIN, stripped_line):
+                            marker = '{ ' + marker
+                        if re.match(re_DECLARE_END, stripped_line):
+                            marker = '} ' + marker
                         output_lines.append(marker)
                         marker_counter += 1
                     break

@@ -27,6 +27,9 @@ re_EXEC_SQL  = re.compile(r'EXEC\s+SQL\b(\s*(.*))?')
 re_DECLARE   = re.compile(r'\s*(BEGIN|END)\s+DECLARE\s+SECTION\s*[;]')
 re_INDENT    = re.compile(r'^(\s*)(.*)')
 
+re_DECLARE_BEGIN   = re.compile(r'EXEC SQL BEGIN\s+DECLARE\s+SECTION\s*[;]')
+re_DECLARE_END     = re.compile(r'EXEC SQL END\s+DECLARE\s+SECTION\s*[;]')
+
 # Regex patterns for SQL Cursor Management
 re_DECLARE_CURSOR = re.compile(r'EXEC\s+SQL\s+DECLARE\s+\w+\s+CURSOR\s+FOR\b')
 re_OPEN_CURSOR = re.compile(r'EXEC\s+SQL\s+OPEN\s+\w+\b')
