@@ -12,7 +12,7 @@ def main():
     args = parser.parse_args()
 
     if not os.path.exists(args.input_file):
-        print(f"Error: Input file does not exist: {args.input_file}")
+        print("Error: Input file does not exist: {}" % (args.input_file))
         return
 
     process_file(args.input_file, args.output_file, clang_format_path=args.clang_format)

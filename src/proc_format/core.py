@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 import logging
+import shutil
 
 from .registry import EXEC_SQL_REGISTRY
 
@@ -30,36 +31,59 @@ def capture_exec_sql_blocks(lines):
     inside_block = False
     current_block = []
     current_handler = None
+    current_construct = None
+    current_pattern = None
     marker_counter = 1  # Sequential counter for unique markers
 
+    debug = "debug/sql"
+    shutil.rmtree(debug, ignore_errors=True)
+    os.mkdir(debug)
+
     for line_number, line in enumerate(lines, 1):
+        stripped_line = line.strip()
         if inside_block:
-            stripped_line = line.strip()
             current_block.append(line)  # Add the line to the current block
+            # TODO: should check END pattern but is often fails
             if ';' in stripped_line:
                 # Block has ended; replace it with a marker
                 marker = get_marker(marker_counter)
                 output_lines.append(marker)
                 captured_blocks.append(current_handler["action"](current_block))
+                with open("{}/{}".format(debug, marker_counter), "w") as f:
+                    f.write(("Construct:  '{}'\n".format(construct))
+                           +("Pattern:    '{}'\n".format(details["pattern"]))
+                            +("Stripped:  '{}'\n".format(current_stripped_line))
+                           +("\n".join(current_block)+"\n\n"))
                 marker_counter += 1
                 inside_block = False
                 current_block = []  # Reset the block
                 current_handler = None
+                current_construct = None
+                current_pattern = None
+                current_stripped_line = None
         else:
             for construct, details in EXEC_SQL_REGISTRY.items():
-                if re.match(details["pattern"], line.strip()):
+                if re.match(details["pattern"], stripped_line):
                     if "end_pattern" in details:
                         # Multi-line block detected
                         inside_block = True
                         current_block = [line]
                         current_handler = details
+                        current_construct = construct
+                        current_pattern = details["pattern"]
+                        current_stripped_line = stripped_line
                     else:
                         # Single-line match
                         captured_blocks.append(details["action"]([line]))
+                        with open("{}/{}".format(debug, marker_counter), "w") as f:
+                            f.write(("Construct:  '{}'\n".format(construct))
+                                   +("Pattern:    '{}'\n".format(details["pattern"]))
+                                   +("Stripped:   '{}'\n".format(stripped_line))
+                                   +(line)+"\n\n")
                         marker = get_marker(marker_counter)
-                        if 'BEGIN' in construct:
+                        if construct == "DECLARE SECTION - BEGIN":
                             marker = '{{ {0}'.format(marker)
-                        if 'END' in construct:
+                        if construct == "DECLARE SECTION - END":
                             marker = '}} {0}'.format(marker)
                         output_lines.append(marker)
                         marker_counter += 1
@@ -86,7 +110,19 @@ def restore_exec_sql_blocks(content, exec_sql_segments):
                 marker_number = int(match.group(2))
                 if marker_number != expected_marker:
                     raise ValueError("Marker out of sequence: expected {0}, found {1}".format(expected_marker, marker_number))
-                restored_lines.extend(exec_sql_segments[marker_number - 1])
+                # get the block, split it on newline
+                lines = exec_sql_segments[marker_number - 1]
+                # Align EXEC SQL with C statements
+                indent = len(line) - len(line.lstrip())
+                first = lines.pop(0)
+                restored_lines.append(" " * indent + first.lstrip())
+                if len(lines) > 0:
+                    prior_indent = len(first) - len(first.lstrip())
+                    delta = indent - prior_indent
+                    (more, less) = (0, delta) if delta < 0 else (delta, 0)
+                    for line in lines:
+                        # this_indent = len(line) - len(line.lstrip()) + delta
+                        restored_lines.append(" " * more + line[-less:])
                 expected_marker += 1
             except (IndexError, ValueError) as e:
                 raise ValueError("Invalid or missing marker: {0}, Error: {1}".format(line, e))
@@ -102,7 +138,8 @@ def format_with_clang(content, clang_format_path="clang-format"):
     """Format content using clang-format."""
     with open("debug/f-before.c", "w") as f:
         f.write(content)
-    process = subprocess.Popen([clang_format_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    # text=True
+    process = subprocess.Popen([clang_format_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = process.communicate(input=content)
     if process.returncode != 0:
         raise RuntimeError("Clang-format failed: {0}".format(error))
