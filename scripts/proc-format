@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+proc-format script use exclusively for testing proc_format
+from its source tree
+"""
+
+import sys
+import os
+import re
+
+import inspect
+
+package_path = inspect.getfile(inspect.currentframe()) # script filename, may be absolute or relative
+package_path = os.path.realpath(package_path) # resolve symlinks, if any
+script_dir = os.path.dirname(package_path)
+src = os.path.realpath(script_dir + "/../src")
+package_dir = src + "/proc_format"
+
+if not os.path.exists(package_dir):
+    raise ValueError("Package directory does not exist:  '{}'".format(package_dir))
+    
+sys.path.insert(0, src)
+
+from proc_format import main
+
+if __name__ == '__main__':
+    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
+    sys.exit(main())
