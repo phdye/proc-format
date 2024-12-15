@@ -47,7 +47,6 @@ def capture_exec_sql_blocks(lines):
     current_block = []
     current_handler = None
     current_construct = None
-    current_pattern = None
     current_construct = None
     current_stripped_line = None
     marker_counter = 1  # Sequential counter for unique markers
