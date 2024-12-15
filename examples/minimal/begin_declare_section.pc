@@ -1,0 +1,14 @@
+#include <stdio.h>
+
+int main() {
+    printf("Defining variables for SQL operations...\n");
+
+    EXEC SQL BEGIN DECLARE SECTION;
+        int employee_id;
+        char first_name[50];
+        char last_name[50];
+    EXEC SQL END DECLARE SECTION;
+
+    printf("Variables declared for SQL operations.\n");
+    return 0;
+}

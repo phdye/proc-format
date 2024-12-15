@@ -1,0 +1,52 @@
+#!/bin/bash
+
+set -e
+
+if [ $# -le 0 ] ; then
+    set examples/basic/unformated.pc
+fi
+
+log=/dn/errors.txt
+out=debug/formated.pc
+sql=debug/sql
+
+counter=0
+
+for in in "$@" ; do
+
+    rm -f ${out}
+
+    ( export PYTHONPATH=$(realpath src) && \
+          ( set -x && python -m proc_format ${in} ${out} 2>&1 ) \
+        ) | tee ${log}
+
+    if [ -r ${out} ] ; then
+        cat ${out}
+        echo
+        echo
+    fi
+
+    if [ ! -f ${sql}/1 ] ; then
+        echo '*** No EXEC SQL extracted !'        
+        echo ''
+    else
+        # max=$(cd ${sql} && args [0-9]* | sort -n | tail -1 )
+        # echo "SQL max : ${max}"
+        # echo
+    
+        for segment in ${sql}/[0-9]* ; do
+            n=$(basename ${segment})
+            cat ${segment}
+            # if [ "$n" -lt "${max}" ] ; then
+            #     read -p "Next segment ?  " nada
+            # fi            
+        done
+    fi
+
+    counter=$((counter + 1))
+    if [ ${counter} -lt $# ] ; then
+        read -p "Next source file ?  " nada
+        clear
+    fi
+
+done

@@ -1,11 +1,21 @@
 #!/bin/bash
 
-log=/dn/errors.txt
+set -e
 
-in=examples/basic/unformated.pc 
+if [ $# -le 0 ] ; then
+    in=examples/basic/unformated.pc
+else
+    in="$1"
+fi
+
+log=/dn/errors.txt
 out=debug/formated.pc
+
+rm -f ${out}
 
 ( PYTHONPATH=$(realpath src) python -m proc_format ${in} ${out} 2>&1 ) | tee ${log}
 
-cat ${out}
-echo
+if [ -r ${out} ] ; then
+    cat ${out}
+    echo
+fi

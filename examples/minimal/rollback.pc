@@ -1,0 +1,13 @@
+#include <stdio.h>
+
+int main() {
+    printf("Performing some transaction...\n");
+
+    // Simulated transactional logic here
+    printf("Encountered an error, rolling back transaction...\n");
+
+    EXEC SQL ROLLBACK;
+
+    printf("Transaction rolled back successfully.\n");
+    return 0;
+}

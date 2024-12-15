@@ -1,0 +1,16 @@
+#include <stdio.h>
+
+void handle_not_found() {
+    printf("No data found. Handling condition...\n");
+}
+
+int main() {
+    printf("Setting up 'not found' handling for SQL operations...\n");
+
+    EXEC SQL WHENEVER NOT FOUND DO handle_not_found();
+
+    printf("Executing SQL statement...\n");
+    // Simulated SQL logic here
+
+    return 0;
+}

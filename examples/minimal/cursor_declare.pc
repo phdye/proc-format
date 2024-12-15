@@ -1,0 +1,15 @@
+#include <stdio.h>
+
+int main() {
+    int dept_id = 101;
+
+    printf("Declaring a cursor for department employees...\n");
+
+    EXEC SQL DECLARE emp_cursor CURSOR FOR
+        SELECT first_name, last_name
+        FROM employees
+        WHERE department_id = :dept_id;
+
+    printf("Cursor declared for department ID %d.\n", dept_id);
+    return 0;
+}

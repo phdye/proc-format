@@ -1,0 +1,14 @@
+#include <stdio.h>
+
+int main() {
+    const char *username = "user";
+    const char *password = "password";
+
+    printf("Connecting to the database using COBOL-compatible syntax...\n");
+
+    EXEC SQL CONNECT :username IDENTIFIED BY :password;
+    END-EXEC;
+
+    printf("Database connection established successfully.\n");
+    return 0;
+}

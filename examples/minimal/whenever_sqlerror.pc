@@ -1,0 +1,16 @@
+#include <stdio.h>
+
+void handle_error() {
+    printf("SQL error encountered. Handling error...\n");
+}
+
+int main() {
+    printf("Setting up error handling for SQL operations...\n");
+
+    EXEC SQL WHENEVER SQLERROR DO handle_error();
+
+    printf("Executing SQL statement...\n");
+    // Simulated SQL logic here
+
+    return 0;
+}

@@ -1,0 +1,19 @@
+#include <stdio.h>
+
+int main() {
+    char first_name[50], last_name[50];
+    int employee_id = 12345;
+
+    printf("Preparing to execute SQL statement...\n");
+
+    EXEC SQL
+        SELECT first_name, last_name
+        INTO :first_name, :last_name
+        FROM employees
+        WHERE employee_id = :employee_id;
+
+    printf("Employee name: %s %s\n", first_name, last_name);
+
+    printf("SQL statement executed successfully.\n");
+    return 0;
+}

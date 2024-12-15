@@ -1,0 +1,13 @@
+#include <stdio.h>
+
+int main() {
+    printf("Starting a transaction...\n");
+
+    // Perform transaction operations here
+    printf("Inserting new employee data...\n");
+
+    EXEC SQL COMMIT WORK RELEASE;
+
+    printf("Transaction committed and resources released.\n");
+    return 0;
+}
