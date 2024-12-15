@@ -1,0 +1,14 @@
+#include <stdio.h>
+
+int main() {
+    int answer = 0;
+
+    printf("Preparing to execute SQL statement...\n");
+
+    EXEC SQL select 42 into :answer from dual;
+
+    printf("Answer:  %d\n", answer);
+
+    printf("SQL statement executed successfully.\n");
+    return 0;
+}

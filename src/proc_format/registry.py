@@ -32,35 +32,41 @@ EXEC_SQL_REGISTRY = {
     },
 
     # Cursor Declaration
-    "CURSOR DECLARATION": {
+    "CURSOR - DECLARE": {
         "pattern": r"EXEC\s+SQL\s+DECLARE\s+\w+\s+CURSOR\s+FOR\b",
         "end_pattern": r";",  # Multi-line ending with semicolon
         "action": lambda lines: lines  # Maintain original content
     },
     # Fetch Cursor
-    "FETCH CURSOR": {
-        "pattern": r"EXEC\s+SQL\s+FETCH\s+\w+\s*;",
+    "CURSOR - FETCH": {
+        "pattern": r"EXEC\s+SQL\s+FETCH\b(.*);",
         "action": lambda lines: lines  # Maintain original content
     },
     # Close Cursor
-    "CLOSE CURSOR": {
-        "pattern": r"EXEC\s+SQL\s+CLOSE\s+\w+\s*;",
+    "CURSOR - CLOSE": {
+        "pattern": r"EXEC\s+SQL\s+CLOSE\b(.*);",
         "action": lambda lines: lines  # Maintain original content
     },
 
     # Commit Work
-    "COMMIT WORK RELEASE": {
-        "pattern": r"EXEC\s+SQL\s+COMMIT\s+WORK\s+RELEASE\s*;",
+    "COMMIT": {
+        "pattern": r"EXEC\s+SQL\s+COMMIT\b(.*);",
         "action": lambda lines: lines  # Maintain original c*ntent
     },
 
-    # Connect Statement
-    "CONNECT": {
-        "pattern": r"EXEC\s+SQL\s+CONNECT\s+\S+\s*;",
-        "action": lambda lines: lines  # Maintain original content
+    # Rollback Work
+    "ROLLBACK": {
+        "pattern": r"EXEC\s+SQL\s+ROLLBACK\b(.*);",
+        "action": lambda lines: lines  # Maintain original c*ntent
     },
-    "CONNECT WITH DB": {
-        "pattern": r"EXEC\s+SQL\s+CONNECT\s+\S+\s+AT\s+(.*\S)\s*;",
+
+    # Connect Statement:
+    #   EXEC SQL CONNECT { :user IDENTIFIED BY :oldpswd | :usr_psw }
+    #       [[ AT { dbname | :host_variable }] USING :connect_string ]
+    #       [ {ALTER AUTHORIZATION :newpswd  |  IN { SYSDBA | SYSOPER } MODE} ] ;
+    #
+    "CONNECT": {
+        "pattern": r"EXEC\s+SQL\s+CONNECT\b(.*);",
         "action": lambda lines: lines  # Maintain original content
     },
 
@@ -72,44 +78,52 @@ EXEC_SQL_REGISTRY = {
 
     # Open Cursor
     "OPEN CURSOR": {
-        "pattern": r"EXEC\s+SQL\s+OPEN\s+\w+\s*;",
+        "pattern": r"EXEC\s+SQL\s+OPEN\b(.*);",
         "action": lambda lines: lines  # Maintain original content
     },
 
     # WHENEVER Statements
     "WHENEVER SQLERROR": {
-        "pattern": r"EXEC\s+SQL\s+WHENEVER\s+SQLERROR\s+(.*);",
+        "pattern": r"EXEC\s+SQL\s+WHENEVER\s+SQLERROR\b(.*);",
         "action": lambda lines: lines  # Maintain original content
     },
 
     "WHENEVER NOT FOUND [1]": {
-        # "pattern": r"EXEC\s\s*SQL\s\s*WHENEVER\s\s*NOT\s\s*FOUND\s+(.*);",
-        "pattern": r"\s*EXEC SQL WHENEVER NOT FOUND\b.*;",
+        "pattern": r"EXEC\s+SQL\s+WHENEVER\s+NOT\s+FOUND\b(.*);",
+        # "pattern": r"EXEC SQL WHENEVER NOT FOUND\b(.*);",
         "action": lambda lines: lines  # Maintain original content
     },
 
-    # WERID TODO: A second copy sometimes hits when the first one doesn't ?
+    # TODO: A second copy will catch it when the first one doesn't ?
+    #   Possibly only Python 3.2.5 issue?
     "WHENEVER NOT FOUND [2]": {
-        # "pattern": r"EXEC\s\s*SQL\s\s*WHENEVER\s\s*NOT\s\s*FOUND\s+(.*);",
-        "pattern": r"\s*EXEC SQL WHENEVER NOT FOUND\b.*;",
+        "pattern": r"EXEC\s+SQL\s+WHENEVER\s+NOT\s+FOUND\b(.*);",
+        # "pattern": r"EXEC SQL WHENEVER NOT FOUND\b(.*);",
         "action": lambda lines: lines  # Maintain original content
     },
 
     # Multi-line Statements
-    "STATEMENT": {
+    "STATEMENT-Single-Line": {
+        "pattern": r"EXEC SQL\b(.*);",
+        "action": lambda lines: lines  # Maintain original content
+    },
+
+    "STATEMENT-Multi-Line": {
         "pattern": r"EXEC SQL\b",
         "end_pattern": r";",  # Block terminates with semicolon
         "action": lambda lines: lines  # Maintain original content
     },
 
-    # END; due to r";" hack
-    "END;": {
-        "pattern": r"END\s*;",
+    # END-EXEC for COBOL Compatibility
+    "END-EXEC": {
+        "pattern": r"END-EXEC\b(.*);",
         "action": lambda lines: lines  # Maintain original content
     },
-    # END-EXEC for COBOL Compatibility
-    "END-EXEC;": {
-        "pattern": r"END-EXEC\s*;",
+
+    # END; due to r";" hack
+    # ** 'END' must be after 'END-EXEC' as '-' matches '\b'
+    "END": {
+        "pattern": r"END\b(.*);",
         "action": lambda lines: lines  # Maintain original content
     }
 }
