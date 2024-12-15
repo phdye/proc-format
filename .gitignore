@@ -3,3 +3,5 @@ f-before.c
 input.pc
 output.pc
 debug/*
+examples/basic/expected.c
+examples/basic/expected.lis
