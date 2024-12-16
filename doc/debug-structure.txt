@@ -1,0 +1,29 @@
+# Debug Directory Structure:
+# -------------------------
+#
+# Command:  proc-format --debug debug/<file-idx>/format unformatted.pc formatted.pc
+#
+# [exa] debug/
+#
+# [exa]   format.log              # <file-idx> <disposition>
+# [exa]   examine.log             # <file-idx> <disposition>
+#
+# [exa]   <file-idx>/
+# [exa]      format/              # Directory with `proc-format` processing files
+# [exa]         transcript.txt    # Transcript of `proc-format` processing
+# [fmt]         before.pc         # Original Pro*C content before formatting
+# [fmt]         before.c          # C content before formatting
+# [fmt]         after.c           # C content after formatting
+# [fmt]         after.pc          # Pro*C content after formatting
+# [fmt]         errors.txt        # List of segments with errors, one per line: <segment-idx>
+#                                 ? TODO: format errors, bad match ? ...
+# [fmt]         sql/              # Directory with extracted EXEC SQL segments
+# [fmt]            <segment-idx>  # EXEC SQL segment
+#
+# [exa]      examine/             # Directory with `examine-sql` processing files
+# [exa]         transcript.txt    # Transcript of `examine-sql` processing
+# [exa]         examine.log       # <segment-idx> <disposition>
+# [fmt]         sql/              # Directory with extracted EXEC SQL segments
+# [fmt]            <segment-idx>  # EXEC SQL segment with error
+#                                 #   symlink ../../format/sql/<segment-idx>
+

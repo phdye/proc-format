@@ -9,13 +9,16 @@ else
 fi
 
 log=errors.txt
-out=debug/formatted.pc
+out=/dev/null
 
-rm -f ${out}
+debug=debug/format/1
+after=${debug}/after.pc
 
-( PYTHONPATH=$(realpath src) python -m proc_format ${in} ${out} 2>&1 ) | tee ${log}
+rm -rf ${debug}
 
-if [ -r ${out} ] ; then
-    cat ${out}
+( PYTHONPATH=$(realpath src) python3 -m proc_format --debug=${debug} ${in} ${out} 2>&1 ) | tee ${log}
+
+if [ -r ${after} ] ; then
+    cat ${after}
     echo
 fi

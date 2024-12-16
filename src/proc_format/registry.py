@@ -1,25 +1,35 @@
-
 # Registry for Modular EXEC SQL Handling
 # --------------------------------------
-# This module defines a registry (EXEC_SQL_REGISTRY) for handling different EXEC SQL constructs.
-# Each entry specifies a regular expression pattern to match a construct and an optional "end_pattern"
-# for multi-line constructs. The "action" defines how the construct's content is processed.
+# This module defines a registry (EXEC_SQL_REGISTRY) for handling different
+# EXEC SQL constructs.  Previously each specic construct was parsed.  That was
+# overkill and made the code more time consuming to maintain.  Since we actually
+# do not format the EXEC SQL lines, we can simply maintain the original content
+# and indent style offset only to align 'EXEC SQL' with C statements the same C block.
+#
+# Each entry specifies a regular expression pattern to match a general construct and
+# and end_pattern for multi-line constructs.  The "action" defines how the construct's
+# content is processed.  Though so far, "maintain original content" is the only action.
+#
+# One bizarre aspect is the duplicate entries for single-line statements.  This is due
+# to a bug in Python 3.2.5.  The bug is not present in Python 3.9+.
 #
 # Notes:
-# - The braces '{' and '}' for BEGIN/END DECLARE SECTION are inserted to facilitate C formatting
-#   but are removed during the restoration phase.
-# - The patterns for single-line and multi-line constructs ensure the parsing logic in core.py
-#   functions correctly for a variety of Pro*C statements.
-
+# - The braces '{' and '}' for BEGIN/END DECLARE SECTION are inserted to facilitate
+#   C formatting but are removed during the restoration phase. -- occurs in core.py
+# - The patterns for single-line and multi-line constructs ensure the parsing logic
+#   in core.py functions correctly for a variety of Pro*C statements.
+#
 # --- Registry for Modular EXEC SQL Handling ---
-
-# Since we are not formating the EXEC SQL lines, simply
-# maintain the original content and indent style offset only
+#
+# Since we are not formating the EXEC SQL lines, simply maintain the original content and indent style offset only
 # to align 'EXEC SQL' with statements the same block.
 #
-# When we start formatting EXEC SQL lines, we will strip() them:
+# Shoould we start formatting EXEC SQL lines, we would most likely strip() them:
 #    "action": lambda lines: [lines[0].strip()]
 #
+# However, most Pro*C EXEC SQL code is already hand formatted and quite
+# carefully internally aligned.  As such, even if we start formatting, it
+# would optional and quite likely enabled selectively in some manner.
 
 import re
 
@@ -54,8 +64,15 @@ EXEC_SQL_REGISTRY = {
         "action": lambda lines: lines  # Maintain original content
     },
 
-    "STATEMENT-Single-Line": {
-        "pattern": r"EXEC SQL\b([^;]*);",
+    # *** Duplicate entries necessary due to Python 3.2.5 bug
+    # ***   unnecessary in Python 3.9+
+    #
+    "STATEMENT-Single-Line [1]": {
+        "pattern": r"EXEC SQL\b(.*);",
+        "action": lambda lines: lines  # Maintain original content
+    },
+    "STATEMENT-Single-Line [2]": {
+        "pattern": r"EXEC SQL\b(.*);",
         "action": lambda lines: lines  # Maintain original content
     },
 
@@ -65,12 +82,16 @@ EXEC_SQL_REGISTRY = {
         "action": lambda lines: lines  # Maintain original content
     },
 
-    # These two entries let one see during examine-sql that we missed a block
+    # 'END-EXEC' and 'END' let use catch unterminated blocks as errors
+    #  -- either as a bug in the source or a bug in the extraction logic
+    #
+    # Hrpmph, just realized Pro*C allows 'END-EXEC' to randomly appear in the code
+
     # END-EXEC for COBOL Compatibility
     "END-EXEC": {
         "pattern": r"END-EXEC\b(.*);",
         "action": lambda lines: lines,  # Maintain original content
-        "error" : None,
+        # "error" : None,
     },
 
     # ** 'END' must be after 'END-EXEC' as '-' matches '\b'
