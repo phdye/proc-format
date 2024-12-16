@@ -47,8 +47,15 @@ re_FETCH_CURSOR = re.compile(r'EXEC\s+SQL\s+FETCH\s+\w+\b')
 re_CLOSE_CURSOR = re.compile(r'EXEC\s+SQL\s+CLOSE\s+\w+\b')
 
 EXEC_SQL_REGISTRY = {
-    "ORACLE-Single-Line": {
-        "pattern": r"EXEC ORACLE\b([^;]*);",
+    # *** Duplicate entries necessary due to Python 3.2.5 bug
+    # ***   unnecessary in Python 3.9+
+    #
+    "ORACLE-Single-Line [1]": {
+        "pattern": r"EXEC ORACLE\b(.*);",
+        "action": lambda lines: lines  # Maintain original content
+    },
+    "ORACLE-Single-Line [2]": {
+        "pattern": r"EXEC ORACLE\b(.*);",
         "action": lambda lines: lines  # Maintain original content
     },
 
