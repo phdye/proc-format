@@ -21,16 +21,18 @@ ERRORS_TXT = "errors.txt"           # List of segments with errors, one per line
 SQL_DIR = "sql"                     # Directory with extracted EXEC SQL segments
 
 class ProCFormatterContext:
-    __slots__ = ["input_file", "output_file", "clang_format_path", "debug", "sql_dir"]
-    def __init__(self, input_file, output_file, clang_format_path="clang-format", debug="debug"):
-        self.input_file = input_file
-        self.output_file = output_file
-        self.clang_format_path = clang_format_path
-        self.debug = debug
-        self.sql_dir = os.path.join(debug, SQL_DIR)
+    __slots__ = ["input_file", "output_file", "clang_format_path", "keep", "debug", "sql_dir"]
+    def __init__(self, args):
+        self.input_file = args.input_file
+        self.output_file = args.output_file
+        self.clang_format_path = args.clang_format
+        self.keep = args.keep
+        self.debug = args.debug
+        self.sql_dir = os.path.join(self.debug, SQL_DIR)
 
-def format_name(debug_dir, file_name):
-    return os.path.join(debug_dir, file_name)
+def format_name(debug_dir, *elements):
+    elements = [str(e) for e in elements]
+    return os.path.join(debug_dir, *elements)
 
 def open_file(debug_dir, file_name):
     return open(format_name(debug_dir, file_name), "w")
@@ -44,9 +46,14 @@ def process_file(ctx : ProCFormatterContext):
 
     print("Formatting: {0}".format(ctx.input_file))
 
-    shutil.rmtree(ctx.sql_dir, ignore_errors=True)
-    shutil.rmtree(ctx.debug, ignore_errors=True)
-    os.makedirs(ctx.debug)
+    if not ctx.keep:
+        if os.path.exists(ctx.debug):
+            shutil.rmtree(ctx.debug, ignore_errors=True)
+    if not os.path.exists(ctx.debug):
+        os.makedirs(ctx.debug)
+
+    if os.path.exists(ctx.sql_dir):
+        shutil.rmtree(ctx.sql_dir, ignore_errors=True)
     os.makedirs(ctx.sql_dir)
 
     with open(ctx.input_file, 'r') as f:
@@ -70,7 +77,7 @@ def process_file(ctx : ProCFormatterContext):
     with open(ctx.output_file, 'w') as f:
         f.write(pc_after)
 
-    print("File processed successfully: {0}".format(ctx.output_file))
+    print("File processed successfully: {0}\nd".format(ctx.input_file))
 
 def capture_exec_sql_blocks(ctx, lines):
     """
