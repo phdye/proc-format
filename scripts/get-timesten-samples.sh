@@ -25,7 +25,7 @@ for file_name in "${SAMPLES[@]}"; do
     output_path="$TARGET_DIR/$file_name"
     
     echo "Downloading $file_name..."
-    curl -o "$output_path" "$url" || wget -O "$output_path" "$url"
+    wget -v -O "$output_path" "$url" || curl -o "$output_path" "$url"
 done
 
 echo "TimesTen Pro*C sample programs have been downloaded to $TARGET_DIR."

@@ -11,6 +11,11 @@ declare -a URLS=(
     "https://raw.githubusercontent.com/campim/pro_c_code/master/exec_proc_oracle.pc"
     "https://raw.githubusercontent.com/campim/pro_c_code/master/generate_letters.pc"
     "https://raw.githubusercontent.com/rubin55/proc-adventures/refs/heads/master/hello.pc"
+    "https://raw.githubusercontent.com/linux-experiments/proc-hello-world/refs/heads/master/hello.pc"
+    "https://raw.githubusercontent.com/linux-experiments/proc-hello-world/refs/heads/master/hello-world.pc"
+    "https://raw.githubusercontent.com/gregrahn/oracle-ascii-unload/refs/heads/master/oracle-ascii-unload.pc"
+    "https://raw.githubusercontent.com/mvallebr/oralib/refs/heads/master/oralib.pc"
+    ""
 )
 
 echo "Downloading Other Pro*C Sample Programs..."
