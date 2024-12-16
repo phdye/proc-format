@@ -4,8 +4,21 @@
 
 ( set -x && find . -name '*.vsix' -delete )
 
-for cache in __pycache__ .pytest_cache ; do
-    find . -name ${cache} | xargs -t -n 1 rm -rf
+if [[ -d node_modules/. && -n "$(which npm 2>/dev/null )" ]] ; then
+    ( set -x && npm cache clean --force 2>&1 ) | tee /tmp/errors.txt
+fi
+
+for cache in '*.pyc' ; do
+    echo "Removing '${cache}' ..."
+    find . -name "${cache}" -print -delete
 done
 
-    
+found=.clean-$$~
+for cache in __pycache__ .pytest_cache ; do
+    echo "Removing '${cache}' ..."
+    find . -name "${cache}" > ${found}
+    if [ -s ${found} ] ; then
+	xargs -t -n 1 rm -rf < ${found}
+    fi
+done
+rm -f ${found}
