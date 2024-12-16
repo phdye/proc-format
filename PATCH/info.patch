@@ -1,0 +1,37 @@
+--- s/a/core.py	2024-12-15 15:25:32.760231900 -0500
++++ s/core.py	2024-12-15 15:29:40.327731300 -0500
+@@ -36,6 +36,8 @@ def capture_exec_sql_blocks(lines):
+     shutil.rmtree(debug, ignore_errors=True)
+     os.mkdir(debug)
+ 
++    print("- Capture EXEC SQL segments ...")
++
+     for line_number, line in enumerate(lines, 1):
+         stripped_line = line.strip()
+         if inside_block:
+@@ -103,6 +105,8 @@ def restore_exec_sql_blocks(content, exe
+     restored_lines = []
+     expected_marker = 1  # Start with the first marker
+ 
++    print("- Restore EXEC SQL segments ...")
++
+     for line in lines:
+         match = re_MARKER_PREFIX.match(line.strip())
+         if match:
+@@ -136,6 +140,7 @@ def restore_exec_sql_blocks(content, exe
+ 
+ def format_with_clang(content, clang_format_path="clang-format"):
+     """Format content using clang-format."""
++    print("- Apply clang-format to C code content ...")
+     with open("debug/f-before.c", "w") as f:
+         f.write(content)
+     popen_additional_args = {}
+@@ -159,6 +164,8 @@ def format_with_clang(content, clang_for
+ def process_file(input_file, output_file, clang_format_path="clang-format"):
+     """Main function to process the file."""
+ 
++    print("Formatting: {0}".format(input_file))
++
+     with open(input_file, 'r') as f:
+         original_content = f.read()
+ 
