@@ -13,6 +13,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'json)
 
 (defgroup exec-sql-parser nil
   "Utilities for parsing EXEC SQL blocks."
@@ -65,6 +66,56 @@ belonging to the construct and should return the processed lines."
 
 (defconst exec-sql-parser--marker-prefix "// EXEC SQL MARKER")
 
+;;;###autoload
+(defun exec-sql-parser-load-registry (start-dir &optional search-parents)
+  "Load EXEC SQL registry from START-DIR.
+
+Searches for `.exec-sql-parser' files starting at START-DIR and
+optionally its parents when SEARCH-PARENTS is non-nil.  Returns a
+registry list compatible with `exec-sql-parser-registry'.  Entries set
+to null remove the built-in definition while objects with at least a
+`pattern' key add or override a definition.  A configuration file may
+contain `root': t to stop searching parent directories."
+  (let* ((dir (expand-file-name start-dir))
+         (search (if (null search-parents) t search-parents))
+         (registry (copy-tree exec-sql-parser-registry))
+         (configs '()))
+    (while dir
+      (let ((cfg (expand-file-name ".exec-sql-parser" dir)))
+        (when (file-regular-p cfg)
+          (let* ((json-object-type 'alist)
+                 (json-key-type 'string)
+                 (json (ignore-errors (json-read-file cfg))))
+            (push (or json '()) configs)
+            (when (and json (cdr (assoc "root" json)))
+              (setq search nil))))
+      (let ((parent (file-name-directory (directory-file-name dir))))
+        (if (or (not search) (equal parent dir))
+            (setq dir nil)
+          (setq dir parent))))
+    (dolist (data (nreverse configs))
+      (dolist (entry data)
+        (let ((name (car entry))
+              (value (cdr entry)))
+          (unless (string= name "root")
+            (cond
+             ((null value)
+              (setq registry (cl-remove-if (lambda (e) (equal (car e) name))
+                                           registry)))
+             ((and (listp value) (assoc "pattern" value))
+              (let ((pattern (cdr (assoc "pattern" value)))
+                    (end-pattern (cdr (assoc "end_pattern" value)))
+                    (err (cdr (assoc "error" value)))
+                    (plist (list :pattern pattern :action #'identity)))
+                (when end-pattern
+                  (setq plist (plist-put plist :end-pattern end-pattern)))
+                (when err
+                  (setq plist (plist-put plist :error err)))
+                (setq registry (cl-remove-if (lambda (e) (equal (car e) name))
+                                             registry))
+                (push (cons name plist) registry))))))))
+    registry))
+
 (defun exec-sql-parser--marker (n)
   "Return a marker string for N." 
   (format "%s:%d:" exec-sql-parser--marker-prefix n))
@@ -84,12 +135,14 @@ belonging to the construct and should return the processed lines."
     (buffer-string)))
 
 ;;;###autoload
-(defun exec-sql-parser-parse (content)
-  "Parse CONTENT capturing EXEC SQL blocks.
+(defun exec-sql-parser-parse (content &optional registry)
+  "Parse CONTENT capturing EXEC SQL blocks using REGISTRY.
 
 Returns a list (OUTPUT CAPTURED) where OUTPUT is a list of lines with markers
-replacing EXEC SQL blocks, and CAPTURED is the list of captured blocks." 
-  (let* ((text (if exec-sql-parser-ignore-comments
+replacing EXEC SQL blocks, and CAPTURED is the list of captured blocks.
+REGISTRY defaults to `exec-sql-parser-registry`."
+  (let* ((registry (or registry exec-sql-parser-registry))
+         (text (if exec-sql-parser-ignore-comments
                    (exec-sql-parser--strip-comments content)
                  content))
          (lines (split-string text "\n"))
@@ -118,7 +171,7 @@ replacing EXEC SQL blocks, and CAPTURED is the list of captured blocks."
                       current-handler nil
                       current-construct nil)))
           (let ((matched nil))
-            (dolist (entry exec-sql-parser-registry)
+            (dolist (entry registry)
               (let ((construct (car entry))
                     (details (cdr entry)))
                 (when (and (not matched)
