@@ -31,7 +31,9 @@
 # carefully internally aligned.  As such, even if we start formatting, it
 # would optional and quite likely enabled selectively in some manner.
 
+import os
 import re
+import json
 
 re_EXEC_SQL  = re.compile(r'EXEC\s+SQL\b(\s*(.*))?')
 re_DECLARE   = re.compile(r'\s*(BEGIN|END)\s+DECLARE\s+SECTION\s*[;]')
@@ -46,7 +48,7 @@ re_OPEN_CURSOR = re.compile(r'EXEC\s+SQL\s+OPEN\s+\w+\b')
 re_FETCH_CURSOR = re.compile(r'EXEC\s+SQL\s+FETCH\s+\w+\b')
 re_CLOSE_CURSOR = re.compile(r'EXEC\s+SQL\s+CLOSE\s+\w+\b')
 
-EXEC_SQL_REGISTRY = {
+DEFAULT_EXEC_SQL_REGISTRY = {
     # *** Duplicate entries necessary due to Python 3.2.5 bug
     # ***   unnecessary in Python 3.9+
     #
@@ -108,3 +110,44 @@ EXEC_SQL_REGISTRY = {
         "error" : None,
     }
 }
+
+def load_registry(start_dir, search_parents=True):
+    registry = DEFAULT_EXEC_SQL_REGISTRY.copy()
+    path = os.path.abspath(start_dir)
+    configs = []
+    while True:
+        cfg_path = os.path.join(path, '.exec-sql-parser')
+        if os.path.isfile(cfg_path):
+            try:
+                f = open(cfg_path, 'r')
+                data = json.load(f)
+                f.close()
+            except Exception:
+                data = {}
+            configs.append(data)
+            if data.get('root'):
+                break
+        parent = os.path.dirname(path)
+        if parent == path or not search_parents:
+            break
+        path = parent
+    configs.reverse()
+    for data in configs:
+        for name, value in data.items():
+            if name == 'root':
+                continue
+            if value is None:
+                if name in registry:
+                    del registry[name]
+            elif isinstance(value, dict):
+                pattern = value.get('pattern')
+                if pattern is None:
+                    continue
+                entry = { 'pattern': pattern,
+                          'action': lambda lines: lines }
+                if 'end_pattern' in value:
+                    entry['end_pattern'] = value['end_pattern']
+                if 'error' in value:
+                    entry['error'] = value['error']
+                registry[name] = entry
+    return registry
