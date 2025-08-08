@@ -144,6 +144,13 @@ DEFAULT_EXEC_SQL_REGISTRY = {
 }
 
 def load_registry(start_dir, search_parents=True):
+    """Load EXEC SQL patterns starting at ``start_dir``.
+
+    Configuration files named ``.exec-sql-parser`` are read from
+    ``start_dir`` and optionally its ancestors.  Each file may add or
+    remove entries from the default registry.  When ``search_parents`` is
+    ``False`` only the starting directory is considered.
+    """
     registry = DEFAULT_EXEC_SQL_REGISTRY.copy()
     path = os.path.abspath(start_dir)
     configs = []

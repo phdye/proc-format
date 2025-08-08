@@ -1,11 +1,11 @@
 import os
 import tempfile
 import shutil
+from collections import OrderedDict
 
 from proc_format.registry import load_registry
 from proc_format.registry import DEFAULT_EXEC_SQL_REGISTRY
 from proc_format import core
-from collections import OrderedDict
 
 
 def write_cfg(dirpath, content):
@@ -16,6 +16,7 @@ def write_cfg(dirpath, content):
 
 
 def test_registry_override_and_disable():
+    # Confirm that local configuration disables and adds registry entries.
     base = tempfile.mkdtemp()
     try:
         write_cfg(base, '{"STATEMENT-Single-Line [1]": null}')
@@ -32,6 +33,7 @@ def test_registry_override_and_disable():
 
 
 def test_registry_no_parents():
+    # Verify parent directories are ignored when search_parents is False.
     base = tempfile.mkdtemp()
     try:
         write_cfg(base, '{"STATEMENT-Single-Line [1]": null}')
@@ -44,6 +46,7 @@ def test_registry_no_parents():
 
 
 def test_registry_root_stops_search():
+    # Ensure a config with "root": true halts upward search.
     base = tempfile.mkdtemp()
     try:
         write_cfg(base, '{"STATEMENT-Single-Line [1]": null}')
@@ -59,6 +62,7 @@ def test_registry_root_stops_search():
 
 
 def test_capture_exec_sql_blocks_variants():
+    # Validate capture_exec_sql_blocks handles known registry variants.
     path = os.path.join(os.path.dirname(__file__), 'data', 'exec_sql_variants.pc')
     f = open(path, 'r')
     lines = f.read().splitlines()
