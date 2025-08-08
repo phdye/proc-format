@@ -1,11 +1,9 @@
 
-test: python-tests emacs-check-parens emacs-eval
+test: python-tests emacs-tests
 
 python-tests py-tests pytest :
 	PYTHONPATH=src pytest tests
 
-emacs-eval e-eval :
-	emacs --batch -Q -l exec-sql-parser.el --eval "(exec-sql-parser-parse \"EXEC SQL\nSELECT * FROM t\")"
+emacs-tests e-tests etest :
+	emacs --batch -l tests/test_exec_sql_parser.el -f ert-run-tests-batch-and-exit
 
-emacs-check-parens e-parens :
-	emacs --batch exec-sql-parser.el -f check-parens
