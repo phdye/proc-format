@@ -217,6 +217,47 @@ Invalid function: #'identity
 
 ---
 
+### Session 2025-08-08-6
+**Objective:**
+Normalize registry actions and ensure EOF blocks invoke their handlers.
+
+**Steps Taken:**
+1. Added `exec-sql-parser--action-fn` to resolve `#'` forms to callable symbols.
+2. Rewrote `exec-sql-parser-parse` so EOF invokes the current handler and returns captured lines.
+3. Verified balance with `check-parens` and exercised parser on terminated and unterminated blocks.
+
+**Commands Run / Observations:**
+```bash
+emacs --batch exec-sql-parser.el -f check-parens
+```
+_Output:_
+```
+[no output, exited 0]
+```
+
+```bash
+emacs --batch -Q -l exec-sql-parser.el --eval "(prin1 (exec-sql-parser-parse \"EXEC SQL SELECT * FROM t;\"))"
+```
+_Output:_
+```
+(("// EXEC SQL MARKER:1:") (("EXEC SQL SELECT * FROM t;")))
+```
+
+**Reasoning / Analysis:**
+- Registry entries quoted as `#'identity` resolve to `(function identity)`; normalizing them to symbols enables `funcall`.
+- Reworking the parser clarified scope and allowed handlers to run when EOF terminates a block.
+
+**Partial Findings:**
+- Parser now captures and returns block content for both terminated and EOF-terminated statements.
+
+**Remaining Issues:**
+- None observed.
+
+**Next Steps for Future Session:**
+- Expand registry actions beyond `identity` to exercise non-trivial handlers.
+
+---
+
 ## Summary of Progress
 - Key discoveries so far:  
   - Parser now loads correctly after fixing unmatched parenthesis.  

@@ -66,8 +66,21 @@ belonging to the construct and should return the processed lines."
 (defconst exec-sql-parser--marker-prefix "// EXEC SQL MARKER")
 
 (defun exec-sql-parser--marker (n)
-  "Return a marker string for N." 
+  "Return a marker string for N."
   (format "%s:%d:" exec-sql-parser--marker-prefix n))
+
+(defun exec-sql-parser--action-fn (action)
+  "Return callable function from ACTION.
+
+ACTION may be a symbol, a lambda, or a `(function SYMBOL)` form
+resulting from using `#'` inside a quoted list.  In the latter case
+`plist-get` returns the cons cell `(function SYMBOL)`, which is not
+directly callable.  This helper normalizes that representation so the
+result can be passed to `funcall` without raising an `invalid-function`
+error."
+  (if (and (consp action) (eq (car action) 'function))
+      (cadr action)
+    action))
 
 (defun exec-sql-parser--strip-comments (string)
   "Return STRING with C style comments removed."
@@ -88,7 +101,7 @@ belonging to the construct and should return the processed lines."
   "Parse CONTENT capturing EXEC SQL blocks.
 
 Returns a list (OUTPUT CAPTURED) where OUTPUT is a list of lines with markers
-replacing EXEC SQL blocks, and CAPTURED is the list of captured blocks." 
+replacing EXEC SQL blocks, and CAPTURED is the list of captured blocks."
   (let* ((text (if exec-sql-parser-ignore-comments
                    (exec-sql-parser--strip-comments content)
                  content))
@@ -108,7 +121,8 @@ replacing EXEC SQL blocks, and CAPTURED is the list of captured blocks."
               (when (and (plist-get current-handler :end-pattern)
                          (string-match-p (plist-get current-handler :end-pattern)
                                          stripped))
-                (push (funcall (plist-get current-handler :action)
+                (push (funcall (exec-sql-parser--action-fn
+                                (plist-get current-handler :action))
                                (nreverse current-block))
                       captured)
                 (push (exec-sql-parser--marker marker-counter) output)
@@ -130,17 +144,21 @@ replacing EXEC SQL blocks, and CAPTURED is the list of captured blocks."
                             current-block (list line)
                             current-handler details
                             current-construct construct)
-                    (push (funcall (plist-get details :action)
+                    (push (funcall (exec-sql-parser--action-fn
+                                    (plist-get details :action))
                                    (list line))
                           captured)
                     (push (exec-sql-parser--marker marker-counter) output)
                     (setq marker-counter (1+ marker-counter))))))
             (unless matched
-              (push line output)))))
+              (push line output))))))
     (when inside
-      (push (nreverse current-block) captured)
+      (push (funcall (exec-sql-parser--action-fn
+                      (plist-get current-handler :action))
+                     (nreverse current-block))
+            captured)
       (push (exec-sql-parser--marker marker-counter) output))
-    (list (nreverse output) (nreverse captured)))))
+      (list (nreverse output) (nreverse captured))))
 
 (provide 'exec-sql-parser)
 
