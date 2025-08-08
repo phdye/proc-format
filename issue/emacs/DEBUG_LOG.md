@@ -142,6 +142,81 @@ _Output:_
 
 ---
 
+### Session 2025-08-08-4
+**Objective:**
+Allow EOF to terminate multi-line `EXEC SQL` blocks and adjust tests.
+
+**Steps Taken:**
+1. Removed hard error at EOF in both Emacs and Python parsers.
+2. Updated Python test to expect capturing rather than a `ValueError`.
+3. Re-ran unit tests and Emacs evaluation.
+
+**Commands Run / Observations:**
+```bash
+PYTHONPATH=src pytest -q
+```
+_Output:_
+```
+.....
+5 passed in 0.04s
+```
+
+```bash
+make e-eval
+```
+_Output:_
+```
+[no output, exited 0]
+```
+
+**Reasoning / Analysis:**
+- Treating EOF as implicit terminator prevents the previous exception.
+- Python side now captures the unfinished block and inserts a marker.
+
+**Partial Findings:**
+- Emacs parser no longer errors but currently returns no captured blocks; behavior may need refinement.
+
+**Remaining Issues:**
+- Verify Emacs parser returns captured block content.
+
+**Next Steps for Future Session:**
+- Investigate why Emacs parser yields empty result and align its output with Python implementation.
+
+---
+
+### Session 2025-08-08-5
+**Objective:**
+Explore invoking handler actions at EOF so unfinished blocks are captured.
+
+**Steps Taken:**
+1. Tried calling the registered `:action` when EOF is reached.
+2. Refactored `exec-sql-parser.el`, but `funcall` on `#'identity` raised `invalid-function` and subsequent edits led to unmatched parentheses.
+
+**Commands Run / Observations:**
+```bash
+emacs --batch -Q -l exec-sql-parser.el --eval "(exec-sql-parser-parse \"EXEC SQL\nSELECT * FROM t\")"
+```
+_Output:_
+```
+Invalid function: #'identity
+```
+
+**Reasoning / Analysis:**
+- Registry stores actions quoted as `#'identity`, yielding a cons cell from `plist-get` that `funcall` can't execute directly.
+- Manual refactoring became error-prone, so changes were reverted.
+
+**Partial Findings:**
+- Action functions may need evaluation before invocation.
+
+**Remaining Issues:**
+- Emacs parser still fails to return block content at EOF.
+
+**Next Steps for Future Session:**
+- Determine how to evaluate registry actions safely.
+- Rework parser structure while keeping parentheses balanced.
+
+---
+
 ## Summary of Progress
 - Key discoveries so far:  
   - Parser now loads correctly after fixing unmatched parenthesis.  
