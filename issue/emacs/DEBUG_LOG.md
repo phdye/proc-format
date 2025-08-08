@@ -1,22 +1,162 @@
-# DEBUG_LOG
+# Debugging Log – Unterminated EXEC SQL Multi-Line
 
-## 2025-08-08
+**Issue Reference:** `issue/emacs/001.txt`  
+**Start Date:** 2025-08-08  
+**Current Status:** In Progress
 
-### Goals
-- Reproduce failing "Unterminated EXEC SQL STATEMENT-Multi-Line" test and collect initial diagnostics.
+---
 
-### Actions
-- Attempted to run `(exec-sql-parser-parse ...)` using Emacs in batch mode, but loading `exec-sql-parser.el` raised `end-of-file` due to unbalanced parentheses.
-- Executed `emacs --batch exec-sql-parser.el -f check-parens` which reported "Unmatched bracket or quote".
-- Wrote a small Python script to locate the unmatched position, identifying an open parenthesis at the start of `exec-sql-parser-parse` (char 2652, ~line 87).
-- Added a missing closing parenthesis at the end of `exec-sql-parser.el` and re-ran `check-parens`, which succeeded.
-- With the file loadable, invoked the parser on a multi-line `EXEC SQL` block lacking a terminating semicolon. Emacs signaled `Unterminated EXEC SQL STATEMENT-Multi-Line`, producing a stack trace.
+## Session Log
 
-### Results
-- Parser file now loads without syntax errors.
-- The targeted failing scenario reproduces reliably via batch invocation, yielding the expected error message and stack trace.
+### Session 2025-08-08
+**Objective:**
+Reproduce the failing "Unterminated EXEC SQL STATEMENT-Multi-Line" error and collect initial diagnostics.
 
-### Next Steps
-- Analyze which portion of the parser determines block termination.
-- Investigate edge cases for multi-line SQL blocks and develop unit tests.
-- Implement parser fixes once root cause is identified.
+**Steps Taken:**
+1. Verified `exec-sql-parser.el` loads by checking for balanced parentheses.
+2. Invoked the parser on a multi-line `EXEC SQL` block lacking a terminating semicolon.
+
+**Commands Run / Observations:**
+```bash
+emacs --batch exec-sql-parser.el -f check-parens
+```
+_Output:_  
+```
+Unmatched bracket or quote
+```
+
+```bash
+make e-eval
+```
+_Output:_  
+```
+Unterminated EXEC SQL STATEMENT-Multi-Line
+```
+
+**Reasoning / Analysis:**
+- The parser file initially failed to load due to an unmatched parenthesis, which was corrected by adding a closing paren.
+- Once loadable, the parser signaled an unterminated multi-line statement when no end marker was present.
+
+**Partial Findings:**
+- The parser depends on a regex `:end-pattern` to detect statement termination.
+
+**Remaining Issues:**
+- Need clarity on how multi-line blocks should terminate.
+
+**Next Steps for Future Session:**
+- Inspect termination logic within `exec-sql-parser-parse`.
+- Add tests for edge cases around multi-line termination.
+
+---
+
+### Session 2025-08-08-2
+**Objective:**
+Examine parser termination logic and document a reproducible failure.
+
+**Steps Taken:**
+1. Ran `make e-eval` and captured the full stack trace.
+2. Reviewed `exec-sql-parser-parse` implementation to understand how termination is handled.
+
+**Commands Run / Observations:**
+```bash
+make e-eval
+```
+_Output:_  
+```
+Unterminated EXEC SQL STATEMENT-Multi-Line
+make: *** [Makefile:8: e-eval] Error 255
+```
+
+```bash
+sed -n '1,200p' exec-sql-parser.el | head
+```
+_Output:_  
+```
+;;; exec-sql-parser.el --- Parse EXEC SQL blocks -*- lexical-binding: t; -*-
+...
+```
+
+**Reasoning / Analysis:**
+- `exec-sql-parser-parse` enters an `inside` state when encountering `EXEC SQL` and expects an `:end-pattern` match to exit.
+- Without a terminating semicolon, the parser reaches EOF and raises an error.
+
+**Partial Findings:**
+- The current logic cannot gracefully handle EOF for unfinished multi-line statements.
+
+**Remaining Issues:**
+- Decide whether EOF should be treated as termination or whether error messaging needs improvement.
+
+**Next Steps for Future Session:**
+- Develop unit tests for multi-line statements with and without terminators.
+- Explore modifications to handle EOF cases.
+
+---
+
+### Session 2025-08-08-3
+**Objective:**
+Add regression test for unterminated multi-line `EXEC SQL` blocks and confirm current failure.
+
+**Steps Taken:**
+1. Implemented a pytest capturing an `EXEC SQL` block missing a semicolon.
+2. Executed the new test and existing suite.
+
+**Commands Run / Observations:**
+```bash
+make e-eval
+```
+_Output:_
+```
+Unterminated EXEC SQL STATEMENT-Multi-Line
+```
+
+```bash
+PYTHONPATH=src pytest tests/test_capture_exec_sql.py::test_unterminated_multi_line -q
+```
+_Output:_
+```
+.
+1 passed in 0.02s
+```
+
+```bash
+PYTHONPATH=src pytest -q
+```
+_Output:_
+```
+5 passed in 0.05s
+```
+
+**Reasoning / Analysis:**
+- Python-side `capture_exec_sql_blocks` mirrors Emacs parser by raising a `ValueError` when EOF is reached without matching the `end_pattern`.
+- The new test documents the failure mode for unfinished multi-line statements.
+
+**Partial Findings:**
+- The parser currently requires an explicit terminator; missing semicolons trigger a predictable error now covered by tests.
+
+**Remaining Issues:**
+- Need a strategy to gracefully handle EOF or provide clearer guidance on required terminators.
+
+**Next Steps for Future Session:**
+- Investigate options for interpreting EOF as block termination.
+- Evaluate improving error messaging or registry configuration.
+
+---
+
+## Summary of Progress
+- Key discoveries so far:  
+  - Parser now loads correctly after fixing unmatched parenthesis.  
+  - Multi-line statements lacking a semicolon trigger an "Unterminated" error due to missing `:end-pattern` match.
+- Current hypothesis:  
+  - Parser needs explicit handling for EOF in multi-line statements or clearer requirements for terminators.
+
+---
+
+## Resolution (fill after closing issue)
+**Final Fix Summary:**  
+-  
+
+**Tests Added/Updated:**  
+-  
+
+**Lessons Learned:**  
+-  
