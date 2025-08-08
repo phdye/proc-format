@@ -142,6 +142,48 @@ _Output:_
 
 ---
 
+### Session 2025-08-08-4
+**Objective:**
+Allow EOF to terminate multi-line `EXEC SQL` blocks and adjust tests.
+
+**Steps Taken:**
+1. Removed hard error at EOF in both Emacs and Python parsers.
+2. Updated Python test to expect capturing rather than a `ValueError`.
+3. Re-ran unit tests and Emacs evaluation.
+
+**Commands Run / Observations:**
+```bash
+PYTHONPATH=src pytest -q
+```
+_Output:_
+```
+.....
+5 passed in 0.04s
+```
+
+```bash
+make e-eval
+```
+_Output:_
+```
+[no output, exited 0]
+```
+
+**Reasoning / Analysis:**
+- Treating EOF as implicit terminator prevents the previous exception.
+- Python side now captures the unfinished block and inserts a marker.
+
+**Partial Findings:**
+- Emacs parser no longer errors but currently returns no captured blocks; behavior may need refinement.
+
+**Remaining Issues:**
+- Verify Emacs parser returns captured block content.
+
+**Next Steps for Future Session:**
+- Investigate why Emacs parser yields empty result and align its output with Python implementation.
+
+---
+
 ## Summary of Progress
 - Key discoveries so far:  
   - Parser now loads correctly after fixing unmatched parenthesis.  

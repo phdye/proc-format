@@ -138,7 +138,8 @@ replacing EXEC SQL blocks, and CAPTURED is the list of captured blocks."
             (unless matched
               (push line output)))))
     (when inside
-      (error "Unterminated EXEC SQL %s" current-construct))
+      (push (nreverse current-block) captured)
+      (push (exec-sql-parser--marker marker-counter) output))
     (list (nreverse output) (nreverse captured)))))
 
 (provide 'exec-sql-parser)

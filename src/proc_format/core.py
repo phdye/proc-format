@@ -156,10 +156,17 @@ def capture_exec_sql_blocks(ctx, lines, registry):
     print()
 
     if inside_block:
-        raise ValueError(
-            "Unterminated EXEC SQL {0} detected at line {1}:\n{2}"
-                .format(current_construct, line_number, "\n".join(current_block))
-        )
+        marker = get_marker(marker_counter)
+        output_lines.append(marker)
+        captured_blocks.append(current_handler["action"](current_block))
+        with open_file(ctx.sql_dir, marker_counter) as f:
+            f.write(("Construct:  '{0}'\n".format(current_construct))
+                   +("Pattern:    '{0}'\n".format(current_handler["pattern"]))
+                   +("EndPattern: '{0}'\n\n".format(current_handler["end_pattern"]))
+                   +("Stripped:  '{0}'\n\n".format(current_stripped_line))
+                   +("\n".join(current_block)+"\n\n"))
+        marker_counter += 1
+        print("b", end="")
 
     return output_lines, captured_blocks
 
