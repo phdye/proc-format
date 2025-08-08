@@ -68,7 +68,8 @@ DEFAULT_EXEC_SQL_REGISTRY = {
     },
 
     "EXECUTE-BEGIN-END-Multi-Line": {
-        "pattern": r"EXEC SQL EXECUTE\b",
+        # Allow optional connection specification (e.g. "AT :db") before EXECUTE
+        "pattern": r"EXEC SQL\s+(AT\s+\S+\s+)?EXECUTE\b",
         "end_pattern": r"END-EXEC;",  # Block termination
         "action": lambda lines: lines  # Maintain original content
     },
