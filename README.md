@@ -1,13 +1,15 @@
 
 # Proc Formatter
 
-A script for processing and formatting code.
+Formats Pro*C source files by aligning `EXEC SQL` blocks with the surrounding C code.  Each SQL block is temporarily replaced by a numbered marker, the remaining C code is processed by `clang-format`, and the original SQL text is restored.
 
 ## Usage
 
 ```bash
 python -m proc_format input_file output_file
 ```
+
+The tool requires access to a `clang-format` executable.
 
 ### Configuration
 
