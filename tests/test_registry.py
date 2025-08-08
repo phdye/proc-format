@@ -3,6 +3,9 @@ import tempfile
 import shutil
 
 from proc_format.registry import load_registry
+from proc_format.registry import DEFAULT_EXEC_SQL_REGISTRY
+from proc_format import core
+from collections import OrderedDict
 
 
 def write_cfg(dirpath, content):
@@ -54,3 +57,32 @@ def test_registry_root_stops_search():
     finally:
         shutil.rmtree(base)
 
+
+def test_capture_exec_sql_blocks_variants():
+    path = os.path.join(os.path.dirname(__file__), 'data', 'exec_sql_variants.pc')
+    f = open(path, 'r')
+    lines = f.read().splitlines()
+    f.close()
+
+    tmpdir = tempfile.mkdtemp()
+    try:
+        ctx = type('Ctx', (object,), {'sql_dir': tmpdir})()
+        registry = OrderedDict()
+        for name, entry in DEFAULT_EXEC_SQL_REGISTRY.items():
+            def action(lines, name=name):
+                return (name, lines)
+            e = entry.copy()
+            e['action'] = action
+            registry[name] = e
+        output, captured = core.capture_exec_sql_blocks(ctx, lines, registry)
+        assert len(captured) == 9
+        assert len(captured[0][1]) == 5
+        assert len(captured[1][1]) == 2
+        assert len(captured[2][1]) == 2
+        markers = []
+        for line in output:
+            if core.re_MARKER_PREFIX.match(line.strip()):
+                markers.append(line)
+        assert len(markers) == 9
+    finally:
+        shutil.rmtree(tmpdir)

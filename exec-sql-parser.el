@@ -26,36 +26,54 @@
 
 (defcustom exec-sql-parser-registry
   '(("ORACLE-Single-Line [1]"
-     :pattern "^EXEC ORACLE\\b.*;"
-     :action #'identity)
+      :pattern "^EXEC ORACLE\\b.*;"
+      :action #'identity)
     ("ORACLE-Single-Line [2]"
-     :pattern "^EXEC ORACLE\\b.*;"
-     :action #'identity)
+      :pattern "^EXEC ORACLE\\b.*;"
+      :action #'identity)
     ("ORACLE-Multi-Line"
-     :pattern "^EXEC ORACLE\\b"
-     :end-pattern ".*;"
-     :action #'identity)
-    ("EXECUTE-BEGIN-END-Multi-Line"
-     :pattern "^EXEC SQL EXECUTE\\b"
-     :end-pattern "END-EXEC;"
-     :action #'identity)
+      :pattern "^EXEC ORACLE\\b"
+      :end-pattern ".*;"
+      :action #'identity)
+    ;; EXEC SQL EXECUTE forms ordered to avoid masking
+    ("EXECUTE-Block"
+      :pattern "^EXEC SQL EXECUTE\\s*$"
+      :end-pattern "END-EXEC;"
+      :action #'identity)
+    ("EXECUTE-Immediate-Multi"
+      :pattern "^EXEC SQL EXECUTE IMMEDIATE\\b[^;]*$"
+      :end-pattern ".*;\\s*$"
+      :action #'identity)
+    ("EXECUTE-Prepared-Multi"
+      :pattern "^EXEC SQL EXECUTE \(?!IMMEDIATE\)\\S[^;]*$"
+      :end-pattern ".*;\\s*$"
+      :action #'identity)
+    ("EXECUTE-Immediate-Single [1]"
+      :pattern "^EXEC SQL EXECUTE IMMEDIATE\\b[^;]*;\\s*$"
+      :action #'identity)
+    ("EXECUTE-Immediate-Single [2]"
+      :pattern "^EXEC SQL EXECUTE IMMEDIATE\\b[^;]*;\\s*$"
+      :action #'identity)
+    ("EXECUTE-Prepared-Single [1]"
+      :pattern "^EXEC SQL EXECUTE \(?!IMMEDIATE\)\\S[^;]*;\\s*$"
+      :action #'identity)
+    ("EXECUTE-Prepared-Single [2]"
+      :pattern "^EXEC SQL EXECUTE \(?!IMMEDIATE\)\\S[^;]*;\\s*$"
+      :action #'identity)
     ("STATEMENT-Single-Line [1]"
-     :pattern "^EXEC SQL\\b.*;"
-     :action #'identity)
+      :pattern "^EXEC SQL\\b.*;"
+      :action #'identity)
     ("STATEMENT-Single-Line [2]"
-     :pattern "^EXEC SQL\\b.*;"
-     :action #'identity)
+      :pattern "^EXEC SQL\\b.*;"
+      :action #'identity)
     ("STATEMENT-Multi-Line"
-     :pattern "^EXEC SQL\\b"
-     :end-pattern ".*;"
-     :action #'identity)
-    ("END-EXEC"
-     :pattern "^END-EXEC\\b.*;"
-     :action #'identity)
+      :pattern "^EXEC SQL\\b"
+      :end-pattern ".*;"
+      :action #'identity)
     ("END"
-     :pattern "^END\\b.*;"
-     :action #'identity
-     :error t))
+      :pattern "^END\\b.*;"
+      :action #'identity
+      :error t))
   "Registry mapping EXEC SQL constructs to regexps and handlers.
 
 Each entry is of the form (CONSTRUCT :pattern REGEXP [:end-pattern REGEXP]
@@ -88,7 +106,7 @@ contain `root': t to stop searching parent directories."
                  (json (ignore-errors (json-read-file cfg))))
             (push (or json '()) configs)
             (when (and json (cdr (assoc "root" json)))
-              (setq search nil))))
+              (setq search nil)))))
       (let ((parent (file-name-directory (directory-file-name dir))))
         (if (or (not search) (equal parent dir))
             (setq dir nil)
@@ -103,10 +121,10 @@ contain `root': t to stop searching parent directories."
               (setq registry (cl-remove-if (lambda (e) (equal (car e) name))
                                            registry)))
              ((and (listp value) (assoc "pattern" value))
-              (let ((pattern (cdr (assoc "pattern" value)))
-                    (end-pattern (cdr (assoc "end_pattern" value)))
-                    (err (cdr (assoc "error" value)))
-                    (plist (list :pattern pattern :action #'identity)))
+              (let* ((pattern (cdr (assoc "pattern" value)))
+                     (end-pattern (cdr (assoc "end_pattern" value)))
+                     (err (cdr (assoc "error" value)))
+                     (plist (list :pattern pattern :action #'identity)))
                 (when end-pattern
                   (setq plist (plist-put plist :end-pattern end-pattern)))
                 (when err
@@ -117,7 +135,7 @@ contain `root': t to stop searching parent directories."
     registry))
 
 (defun exec-sql-parser--marker (n)
-  "Return a marker string for N." 
+  "Return a marker string for N."
   (format "%s:%d:" exec-sql-parser--marker-prefix n))
 
 (defun exec-sql-parser--strip-comments (string)
@@ -126,7 +144,7 @@ contain `root': t to stop searching parent directories."
     (insert string)
     ;; Remove block comments
     (goto-char (point-min))
-    (while (re-search-forward "/\\*\(?:.\|\n\)*?\\*/" nil t)
+    (while (re-search-forward "/\\*\\(?:.\\|\\n\\)*?\\*/" nil t)
       (replace-match ""))
     ;; Remove line comments
     (goto-char (point-min))
@@ -193,6 +211,7 @@ REGISTRY defaults to `exec-sql-parser-registry`."
     (when inside
       (error "Unterminated EXEC SQL %s" current-construct))
     (list (nreverse output) (nreverse captured))))
+  )
 
 (provide 'exec-sql-parser)
 
