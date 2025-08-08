@@ -142,6 +142,122 @@ _Output:_
 
 ---
 
+### Session 2025-08-08-4
+**Objective:**
+Allow EOF to terminate multi-line `EXEC SQL` blocks and adjust tests.
+
+**Steps Taken:**
+1. Removed hard error at EOF in both Emacs and Python parsers.
+2. Updated Python test to expect capturing rather than a `ValueError`.
+3. Re-ran unit tests and Emacs evaluation.
+
+**Commands Run / Observations:**
+```bash
+PYTHONPATH=src pytest -q
+```
+_Output:_
+```
+.....
+5 passed in 0.04s
+```
+
+```bash
+make e-eval
+```
+_Output:_
+```
+[no output, exited 0]
+```
+
+**Reasoning / Analysis:**
+- Treating EOF as implicit terminator prevents the previous exception.
+- Python side now captures the unfinished block and inserts a marker.
+
+**Partial Findings:**
+- Emacs parser no longer errors but currently returns no captured blocks; behavior may need refinement.
+
+**Remaining Issues:**
+- Verify Emacs parser returns captured block content.
+
+**Next Steps for Future Session:**
+- Investigate why Emacs parser yields empty result and align its output with Python implementation.
+
+---
+
+### Session 2025-08-08-5
+**Objective:**
+Explore invoking handler actions at EOF so unfinished blocks are captured.
+
+**Steps Taken:**
+1. Tried calling the registered `:action` when EOF is reached.
+2. Refactored `exec-sql-parser.el`, but `funcall` on `#'identity` raised `invalid-function` and subsequent edits led to unmatched parentheses.
+
+**Commands Run / Observations:**
+```bash
+emacs --batch -Q -l exec-sql-parser.el --eval "(exec-sql-parser-parse \"EXEC SQL\nSELECT * FROM t\")"
+```
+_Output:_
+```
+Invalid function: #'identity
+```
+
+**Reasoning / Analysis:**
+- Registry stores actions quoted as `#'identity`, yielding a cons cell from `plist-get` that `funcall` can't execute directly.
+- Manual refactoring became error-prone, so changes were reverted.
+
+**Partial Findings:**
+- Action functions may need evaluation before invocation.
+
+**Remaining Issues:**
+- Emacs parser still fails to return block content at EOF.
+
+**Next Steps for Future Session:**
+- Determine how to evaluate registry actions safely.
+- Rework parser structure while keeping parentheses balanced.
+
+---
+
+### Session 2025-08-08-6
+**Objective:**
+Normalize registry actions and ensure EOF blocks invoke their handlers.
+
+**Steps Taken:**
+1. Added `exec-sql-parser--action-fn` to resolve `#'` forms to callable symbols.
+2. Rewrote `exec-sql-parser-parse` so EOF invokes the current handler and returns captured lines.
+3. Verified balance with `check-parens` and exercised parser on terminated and unterminated blocks.
+
+**Commands Run / Observations:**
+```bash
+emacs --batch exec-sql-parser.el -f check-parens
+```
+_Output:_
+```
+[no output, exited 0]
+```
+
+```bash
+emacs --batch -Q -l exec-sql-parser.el --eval "(prin1 (exec-sql-parser-parse \"EXEC SQL SELECT * FROM t;\"))"
+```
+_Output:_
+```
+(("// EXEC SQL MARKER:1:") (("EXEC SQL SELECT * FROM t;")))
+```
+
+**Reasoning / Analysis:**
+- Registry entries quoted as `#'identity` resolve to `(function identity)`; normalizing them to symbols enables `funcall`.
+- Reworking the parser clarified scope and allowed handlers to run when EOF terminates a block.
+
+**Partial Findings:**
+- Parser now captures and returns block content for both terminated and EOF-terminated statements.
+
+**Remaining Issues:**
+- None observed.
+
+**Next Steps for Future Session:**
+- Expand registry actions beyond `identity` to exercise non-trivial handlers.
+
+---
+
 ## Summary of Progress
 - Key discoveries so far:  
   - Parser now loads correctly after fixing unmatched parenthesis.  
