@@ -26,4 +26,6 @@
 # [fmt]         sql/              # Directory with extracted EXEC SQL segments
 # [fmt]            <segment-idx>  # EXEC SQL segment with error
 #                                 #   symlink ../../format/sql/<segment-idx>
-
+#
+# [exa]      save/                # Directory with saved files
+# [exa]         <segment-index>   # manually saved during processing
