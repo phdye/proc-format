@@ -20,8 +20,27 @@ AFTER_PC = "after.pc"               # Pro*C content after formatting
 ERRORS_TXT = "errors.txt"           # List of segments with errors, one per line: <segment-idx>
 SQL_DIR = "sql"                     # Directory with extracted EXEC SQL segments
 
+
 class ProCFormatterContext:
-    __slots__ = ["input_file", "output_file", "clang_format_path", "keep", "debug", "sql_dir", "registry"]
+    """Runtime configuration for :func:`process_file`.
+
+    Instances are lightweight containers created from command-line
+    arguments.  They expose the input and output paths, the location of
+    the ``clang-format`` executable and a registry of EXEC SQL
+    constructs.  The class intentionally avoids ``__dict__`` creation
+    to keep attribute access inexpensive.
+    """
+
+    __slots__ = [
+        "input_file",
+        "output_file",
+        "clang_format_path",
+        "keep",
+        "debug",
+        "sql_dir",
+        "registry",
+    ]
+
     def __init__(self, args):
         self.input_file = args.input_file
         self.output_file = args.output_file
@@ -30,6 +49,8 @@ class ProCFormatterContext:
         self.debug = args.debug
         self.sql_dir = os.path.join(self.debug, SQL_DIR)
         search = not getattr(args, 'no_registry_parents', False)
+        # The registry is loaded from ``.exec-sql-parser`` files in the
+        # directory tree containing ``input_file``.
         self.registry = load_registry(os.path.dirname(self.input_file), search)
 
 def format_name(debug_dir, *elements):
@@ -43,8 +64,18 @@ def write_file(debug_dir, file_name, content):
     with open_file(debug_dir, file_name) as f:
         f.write(content)
 
-def process_file(ctx : ProCFormatterContext):
-    """Main function to process the file."""
+def process_file(ctx):
+    """Format a Pro*C file while preserving EXEC SQL segments.
+
+    The function performs the following steps:
+
+    1.  Capture EXEC SQL constructs and replace them with numbered
+        markers.
+    2.  Run ``clang-format`` over the resulting C code.
+    3.  Restore the captured EXEC SQL text in place of the markers.
+
+    Temporary files are written beneath ``ctx.debug`` for inspection.
+    """
 
     print("Formatting: {0}".format(ctx.input_file))
 
@@ -82,16 +113,19 @@ def process_file(ctx : ProCFormatterContext):
     print("File processed successfully: {0}\nd".format(ctx.input_file))
 
 def capture_exec_sql_blocks(ctx, lines, registry):
-    """
-    Parses the input lines, replacing EXEC SQL blocks with markers
-    and capturing their content for later restoration.
+    """Extract EXEC SQL blocks from ``lines``.
+
+    Each matched block is replaced by a numbered marker and the original
+    text is stored in ``ctx.sql_dir``.  The function returns a tuple of
+    ``(output_lines, captured_blocks)`` where ``output_lines`` is the
+    marker substituted content and ``captured_blocks`` contains the
+    original lines for each marker.
     """
     captured_blocks = []
     output_lines = []
     inside_block = False
     current_block = []
     current_handler = None
-    current_construct = None
     current_construct = None
     current_stripped_line = None
     marker_counter = 1  # Sequential counter for unique markers
@@ -101,7 +135,7 @@ def capture_exec_sql_blocks(ctx, lines, registry):
     for line_number, line in enumerate(lines, 1):
         stripped_line = line.strip()
         if inside_block:
-            current_block.append(line)  # Add the line to the current block
+            current_block.append(line)  # Continue accumulating block
             # TODO: should check END pattern but is often fails
             if re.match(current_handler["end_pattern"], stripped_line):
                 # Block has ended; replace it with a marker
@@ -171,12 +205,19 @@ def capture_exec_sql_blocks(ctx, lines, registry):
     return output_lines, captured_blocks
 
 def format_with_clang(ctx, content):
-    """Format content using clang-format."""
+    """Return ``content`` formatted with ``clang-format``.
+
+    ``ctx.clang_format_path`` is executed as a subprocess.  Any
+    ``clang-format`` failure results in ``RuntimeError``.  On Python
+    versions earlier than 3.7 the function handles the byte/string
+    conversions explicitly.
+    """
     print("- Apply clang-format to C code content ...")
     popen_additional_args = {}
-    if sys.version_info >= (3, 7, 0): # Python ? 3.2.5
+    if sys.version_info >= (3, 7, 0):  # Python 3.7 added ``text``
         popen_additional_args["text"] = True
     else:
+        # Python 3.2 subprocess expects byte strings
         if True : # if hasattr(content, "encode"):
             content = content.encode()
     process = subprocess.Popen([ctx.clang_format_path],
@@ -190,6 +231,13 @@ def format_with_clang(ctx, content):
     return output
 
 def restore_exec_sql_blocks(content, exec_sql_segments):
+    """Replace markers in ``content`` with EXEC SQL blocks.
+
+    ``exec_sql_segments`` must contain the original text for each marker
+    in order.  Restored lines are indented to match the marker they
+    replace.  Errors are raised for out-of-sequence markers or when not
+    all segments are consumed.
+    """
     lines = content.split('\n')
     restored_lines = []
     expected_marker = 1  # Start with the first marker
@@ -235,4 +283,5 @@ def restore_exec_sql_blocks(content, exec_sql_segments):
     return "\n".join(restored_lines)
 
 def get_marker(n):
+    """Return the formatted marker string for index ``n``."""
     return "{0} :{1}:".format(MARKER_PREFIX, n)

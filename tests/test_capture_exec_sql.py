@@ -5,6 +5,7 @@ from proc_format.registry import load_registry
 
 
 def test_execute_with_at_connection(tmp_path):
+    # Validates parsing of EXECUTE statements with an AT clause.
     sql_dir = tmp_path / 'sql'
     os.makedirs(str(sql_dir))
     ctx = type('Ctx', (), {'sql_dir': str(sql_dir)})
@@ -29,6 +30,7 @@ def test_execute_with_at_connection(tmp_path):
 
 
 def test_multi_line_terminated_at_eof(tmp_path):
+    # Ensures a multi-line statement ending at EOF is captured.
     sql_dir = tmp_path / 'sql'
     os.makedirs(str(sql_dir))
     ctx = type('Ctx', (), {'sql_dir': str(sql_dir)})
