@@ -1,0 +1,70 @@
+Script started on 2025-08-08 16:43:28-04:00 [TERM="screen.xterm-256color" TTY="/dev/pty11" COLUMNS="121" LINES="40"]
+Oracle connection : OK
+ssh-agent is already running
+2048 SHA256:UZzJ9QUnS/2U8yUrvPZFqUkIEIFo961LxH+TlIM3M2A /home/phdyex/.ssh/./id_rsa (RSA)
+256 SHA256:Hbth+Z5Y2OvzGc4nUEKkypDo1Re7sNpvYm8F1EBxOTk phdyex@xps-ne (ED25519)
+3072 SHA256:U7Bpcu/EFk38MGgQfSKcc2N5uJzyfAcXCCHOtDmMgfQ phdyex@xps-ne (RSA)
+3072 SHA256:t/KgCWCnRKu1bPW6KSe39cA2+BBH2noHPKOHFgCxvs0 phdyex@xps-ne (RSA)
+3072 SHA256:Ze9hHvWp5m5Q3N6UrGwP0rnkXY7I4MaqDo9nhaSgxFg phdyex@xps-ne (RSA)
+[ 4 ] phdyex @ xps-ne /d/-/maint/vs-code/pro-c/proc-format
+$ git checkout emacs-unterminated
+M       Makefile
+D       debug/.empty
+Already on 'emacs-unterminated'
+Your branch is up to date with 'origin/emacs-unterminated'.
+[ 4 ] phdyex @ xps-ne /d/-/maint/vs-code/pro-c/proc-format
+$ make test
+PYTHONPATH=src pytest tests
+================================================== test session starts ==================================================
+platform cygwin -- Python 3.9.16, pytest-8.3.3, pluggy-1.5.0
+rootdir: /d/-/maint/vs-code/pro-c/proc-format
+plugins: anyio-4.6.2.post1, subprocess-1.5.2
+collected 5 items                                                                                                       
+tests/test_capture_exec_sql.py ..                                                                                 [ 40%]
+tests/test_registry.py ...                                                                                        [100%]
+=================================================== 5 passed in 0.06s ===================================================
+emacs --batch exec-sql-parser.el -f check-parens
+emacs --batch -Q -l exec-sql-parser.el --eval "(exec-sql-parser-parse \"EXEC SQL\nSELECT * FROM t\")"
+[ 4 ] phdyex @ xps-ne /d/-/maint/vs-code/pro-c/proc-format
+$ git checkout main
+error: Your local changes to the following files would be overwritten by checkout:
+        Makefile
+Please commit your changes or stash them before you switch branches.
+Aborting
+[ 4 ] phdyex @ xps-ne /d/-/maint/vs-code/pro-c/proc-format
+$ git commit -m "add pytest target" Makefile 
+[emacs-unterminated d0b0358] add pytest target
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+[ 4 ] phdyex @ xps-ne /d/-/maint/vs-code/pro-c/proc-format
+heckout main
+D       debug/.empty
+Switched to branch 'main'
+[ 4 ] phdyex @ xps-ne /d/-/maint/vs-code/pro-c/proc-format
+make test
+PYTHONPATH=src pytest tests
+================================================== test session starts ==================================================
+platform cygwin -- Python 3.9.16, pytest-8.3.3, pluggy-1.5.0
+rootdir: /d/-/maint/vs-code/pro-c/proc-format
+plugins: anyio-4.6.2.post1, subprocess-1.5.2
+collected 6 items                                                                                                       
+tests/test_capture_exec_sql.py ..                                                                                 [ 33%]
+tests/test_registry.py ....                                                                                       [100%]
+=================================================== 6 passed in 0.08s ===================================================
+emacs --batch exec-sql-parser.el -f check-parens
+Mark set
+Error: user-error ("Unmatched bracket or quote")
+  signal(user-error ("Unmatched bracket or quote"))
+  user-error("Unmatched bracket or quote")
+  check-parens()
+  funcall-interactively(check-parens)
+  call-interactively(check-parens nil nil)
+  command-execute(check-parens)
+  command-line-1(("exec-sql-parser.el" "-f" "check-parens"))
+  command-line()
+  normal-top-level()
+Unmatched bracket or quote
+make: *** [Makefile:11: emacs-check-parens] Error 255
+[ 4 ] phdyex @ xps-ne /d/-/maint/vs-code/pro-c/proc-format
+$ exit
+exit
+Script done on 2025-08-08 16:44:38-04:00 [COMMAND_EXIT_CODE="2"]
