@@ -5,8 +5,8 @@ import subprocess
 import logging
 import shutil
 
-from .registry import EXEC_SQL_REGISTRY
-from .registry import re_DECLARE_BEGIN, re_DECLARE_END, re_BEGIN, re_END
+from .registry import load_registry
+from .registry import re_DECLARE_BEGIN, re_DECLARE_END
 
 logging.basicConfig(level=logging.INFO)
 
@@ -21,7 +21,7 @@ ERRORS_TXT = "errors.txt"           # List of segments with errors, one per line
 SQL_DIR = "sql"                     # Directory with extracted EXEC SQL segments
 
 class ProCFormatterContext:
-    __slots__ = ["input_file", "output_file", "clang_format_path", "keep", "debug", "sql_dir"]
+    __slots__ = ["input_file", "output_file", "clang_format_path", "keep", "debug", "sql_dir", "registry"]
     def __init__(self, args):
         self.input_file = args.input_file
         self.output_file = args.output_file
@@ -29,6 +29,8 @@ class ProCFormatterContext:
         self.keep = args.keep
         self.debug = args.debug
         self.sql_dir = os.path.join(self.debug, SQL_DIR)
+        search = not getattr(args, 'no_registry_parents', False)
+        self.registry = load_registry(os.path.dirname(self.input_file), search)
 
 def format_name(debug_dir, *elements):
     elements = [str(e) for e in elements]
@@ -61,7 +63,7 @@ def process_file(ctx : ProCFormatterContext):
     write_file(ctx.debug, BEFORE_PC, pc_before)
 
     # Step 1: Mark EXEC SQL lines
-    marked_content, exec_sql_segments = capture_exec_sql_blocks(ctx, pc_before.splitlines())
+    marked_content, exec_sql_segments = capture_exec_sql_blocks(ctx, pc_before.splitlines(), ctx.registry)
     c_before = "\n".join(marked_content)
     write_file(ctx.debug, BEFORE_C, c_before)
 
@@ -79,7 +81,7 @@ def process_file(ctx : ProCFormatterContext):
 
     print("File processed successfully: {0}\nd".format(ctx.input_file))
 
-def capture_exec_sql_blocks(ctx, lines):
+def capture_exec_sql_blocks(ctx, lines, registry):
     """
     Parses the input lines, replacing EXEC SQL blocks with markers
     and capturing their content for later restoration.
@@ -92,21 +94,16 @@ def capture_exec_sql_blocks(ctx, lines):
     current_construct = None
     current_construct = None
     current_stripped_line = None
-    end_pattern = None
     marker_counter = 1  # Sequential counter for unique markers
 
     print("- Capture EXEC SQL segments ...")
 
     for line_number, line in enumerate(lines, 1):
-        line = line.rstrip()
         stripped_line = line.strip()
         if inside_block:
             current_block.append(line)  # Add the line to the current block
             # TODO: should check END pattern but is often fails
-            if re_BEGIN.match(stripped_line):
-                end_pattern = re_END
-                continue
-            if end_pattern.match(stripped_line):
+            if re.match(current_handler["end_pattern"], stripped_line):
                 # Block has ended; replace it with a marker
                 marker = get_marker(marker_counter)
                 output_lines.append(marker)
@@ -123,13 +120,10 @@ def capture_exec_sql_blocks(ctx, lines):
                 current_handler = None
                 current_construct = None
                 current_stripped_line = None
-                end_pattern = None
                 print("b", end="")
         else:
-            for construct, details in EXEC_SQL_REGISTRY.items():
-                if details["pattern"].match(stripped_line):
-                    if 'action' not in details:
-                        continue
+            for construct, details in registry.items():
+                if re.match(details["pattern"], stripped_line):
                     if "error" in details:
                         raise ValueError("Unaccompanied block end marker detected at line {0}:\n{1}"
                             .format(line_number, line))
@@ -140,7 +134,6 @@ def capture_exec_sql_blocks(ctx, lines):
                         current_handler = details
                         current_construct = construct
                         current_stripped_line = stripped_line
-                        end_pattern = current_handler["end_pattern"]
                     else:
                         # Single-line match
                         captured_blocks.append(details["action"]([line]))
@@ -160,7 +153,6 @@ def capture_exec_sql_blocks(ctx, lines):
                     break
             else:
                 output_lines.append(line)
-    print("  : {}".format(marker_counter-1))
     print()
 
     if inside_block:
