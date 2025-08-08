@@ -1,0 +1,88 @@
+import os
+import tempfile
+import shutil
+
+from proc_format.registry import load_registry
+from proc_format.registry import DEFAULT_EXEC_SQL_REGISTRY
+from proc_format import core
+from collections import OrderedDict
+
+
+def write_cfg(dirpath, content):
+    path = os.path.join(dirpath, '.exec-sql-parser')
+    f = open(path, 'w')
+    f.write(content)
+    f.close()
+
+
+def test_registry_override_and_disable():
+    base = tempfile.mkdtemp()
+    try:
+        write_cfg(base, '{"STATEMENT-Single-Line [1]": null}')
+        sub = os.path.join(base, 'sub')
+        os.mkdir(sub)
+        write_cfg(sub,
+                  '{"CUSTOM": {"pattern": "EXEC SQL TEST;", "end_pattern": "END;"}}')
+        reg = load_registry(sub)
+        assert 'STATEMENT-Single-Line [1]' not in reg
+        assert reg['CUSTOM']['pattern'] == 'EXEC SQL TEST;'
+        assert 'end_pattern' in reg['CUSTOM']
+    finally:
+        shutil.rmtree(base)
+
+
+def test_registry_no_parents():
+    base = tempfile.mkdtemp()
+    try:
+        write_cfg(base, '{"STATEMENT-Single-Line [1]": null}')
+        sub = os.path.join(base, 'sub')
+        os.mkdir(sub)
+        reg = load_registry(sub, search_parents=False)
+        assert 'STATEMENT-Single-Line [1]' in reg
+    finally:
+        shutil.rmtree(base)
+
+
+def test_registry_root_stops_search():
+    base = tempfile.mkdtemp()
+    try:
+        write_cfg(base, '{"STATEMENT-Single-Line [1]": null}')
+        mid = os.path.join(base, 'mid')
+        os.mkdir(mid)
+        write_cfg(mid, '{"root": true}')
+        sub = os.path.join(mid, 'sub')
+        os.mkdir(sub)
+        reg = load_registry(sub)
+        assert 'STATEMENT-Single-Line [1]' in reg
+    finally:
+        shutil.rmtree(base)
+
+
+def test_capture_exec_sql_blocks_variants():
+    path = os.path.join(os.path.dirname(__file__), 'data', 'exec_sql_variants.pc')
+    f = open(path, 'r')
+    lines = f.read().splitlines()
+    f.close()
+
+    tmpdir = tempfile.mkdtemp()
+    try:
+        ctx = type('Ctx', (object,), {'sql_dir': tmpdir})()
+        registry = OrderedDict()
+        for name, entry in DEFAULT_EXEC_SQL_REGISTRY.items():
+            def action(lines, name=name):
+                return (name, lines)
+            e = entry.copy()
+            e['action'] = action
+            registry[name] = e
+        output, captured = core.capture_exec_sql_blocks(ctx, lines, registry)
+        assert len(captured) == 9
+        assert len(captured[0][1]) == 5
+        assert len(captured[1][1]) == 2
+        assert len(captured[2][1]) == 2
+        markers = []
+        for line in output:
+            if core.re_MARKER_PREFIX.match(line.strip()):
+                markers.append(line)
+        assert len(markers) == 9
+    finally:
+        shutil.rmtree(tmpdir)

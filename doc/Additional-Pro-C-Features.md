@@ -168,12 +168,6 @@ EXEC_SQL_REGISTRY = {
         "action": lambda lines: [lines[0].strip()]
     },
 
-    # COBOL Compatibility
-    "END-EXEC": {
-        "pattern": r"END-EXEC;",
-        "action": lambda lines: [lines[0].strip()]
-    },
-
     # Embedded PL/SQL Blocks
     "PL/SQL BLOCK": {
         "pattern": r"EXEC SQL BEGIN",
