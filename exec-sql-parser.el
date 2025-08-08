@@ -224,9 +224,12 @@ REGISTRY defaults to `exec-sql-parser-registry`."
             (unless matched
               (push line output))))))
     (when inside
-      (error "Unterminated EXEC SQL %s" current-construct))
+      (push (funcall (exec-sql-parser--action-fn
+                      (plist-get current-handler :action))
+                     (nreverse current-block))
+            captured)
+      (push (exec-sql-parser--marker marker-counter) output))
     (list (nreverse output) (nreverse captured))))
-  )
 
 (provide 'exec-sql-parser)
 
