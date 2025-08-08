@@ -37,28 +37,28 @@
       :action #'identity)
     ;; EXEC SQL EXECUTE forms ordered to avoid masking
     ("EXECUTE-Block"
-      :pattern "^EXEC SQL EXECUTE\\s*$"
-      :end-pattern "END-EXEC;"
+      :pattern "^EXEC SQL EXECUTE\\s-*$"
+      :end-pattern "^END-EXEC;\\s-*$"
       :action #'identity)
     ("EXECUTE-Immediate-Multi"
       :pattern "^EXEC SQL EXECUTE IMMEDIATE\\b[^;]*$"
-      :end-pattern ".*;\\s*$"
+      :end-pattern ".*;\\s-*$"
       :action #'identity)
     ("EXECUTE-Prepared-Multi"
-      :pattern "^EXEC SQL EXECUTE \(?!IMMEDIATE\)\\S[^;]*$"
-      :end-pattern ".*;\\s*$"
+      :pattern "^EXEC SQL EXECUTE \(?!IMMEDIATE\)\\S-[^;]*$"
+      :end-pattern ".*;\\s-*$"
       :action #'identity)
     ("EXECUTE-Immediate-Single [1]"
-      :pattern "^EXEC SQL EXECUTE IMMEDIATE\\b[^;]*;\\s*$"
+      :pattern "^EXEC SQL EXECUTE IMMEDIATE\\b[^;]*;\\s-*$"
       :action #'identity)
     ("EXECUTE-Immediate-Single [2]"
-      :pattern "^EXEC SQL EXECUTE IMMEDIATE\\b[^;]*;\\s*$"
+      :pattern "^EXEC SQL EXECUTE IMMEDIATE\\b[^;]*;\\s-*$"
       :action #'identity)
     ("EXECUTE-Prepared-Single [1]"
-      :pattern "^EXEC SQL EXECUTE \(?!IMMEDIATE\)\\S[^;]*;\\s*$"
+      :pattern "^EXEC SQL EXECUTE \(?!IMMEDIATE\)\\S-[^;]*;\\s-*$"
       :action #'identity)
     ("EXECUTE-Prepared-Single [2]"
-      :pattern "^EXEC SQL EXECUTE \(?!IMMEDIATE\)\\S[^;]*;\\s*$"
+      :pattern "^EXEC SQL EXECUTE \(?!IMMEDIATE\)\\S-[^;]*;\\s-*$"
       :action #'identity)
     ("STATEMENT-Single-Line [1]"
       :pattern "^EXEC SQL\\b.*;"
