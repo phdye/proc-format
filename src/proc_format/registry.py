@@ -69,7 +69,7 @@ DEFAULT_EXEC_SQL_REGISTRY = {
 
     # EXEC SQL EXECUTE forms (ordered to avoid masking)
     "EXECUTE-Block": {
-        "pattern": r"EXEC SQL\s+(?:AT\s+\S+\s+)?EXECUTE\s*$",
+        "pattern": r"EXEC SQL\s+(?:AT\s+\S+\s+)?EXECUTE\s*$"
         "end_pattern": r"END-EXEC;",
         "action": lambda lines: lines  # Maintain original content
     },
@@ -122,14 +122,18 @@ DEFAULT_EXEC_SQL_REGISTRY = {
         "end_pattern": r".*;",  # Block terminates with semicolon
         "action": lambda lines: lines  # Maintain original content
     },
-
-    # END-EXEC for COBOL compatibility
-    "END-EXEC": {
-        "pattern": r"END-EXEC\b(.*);",
-        "action": lambda lines: lines,  # Maintain original content
-        # "error" : None,
-    },
-
+# 
+# <<<<<<< emacs-unterminated
+#     # END-EXEC for COBOL compatibility
+#     "END-EXEC": {
+#         "pattern": r"END-EXEC\b(.*);",
+#         "action": lambda lines: lines,  # Maintain original content
+#         # "error" : None,
+#     },
+# 
+# =======
+# >>>>>>> main
+# 
     # 'END' lets us catch unterminated blocks as errors
     #  -- either as a bug in the source or a bug in the extraction logic
     "END": {

@@ -226,6 +226,7 @@ REGISTRY defaults to `exec-sql-parser-registry`."
     (when inside
       (error "Unterminated EXEC SQL %s" current-construct))
     (list (nreverse output) (nreverse captured))))
+  )
 
 (provide 'exec-sql-parser)
 
