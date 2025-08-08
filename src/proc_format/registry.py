@@ -69,7 +69,7 @@ DEFAULT_EXEC_SQL_REGISTRY = {
 
     # EXEC SQL EXECUTE forms (ordered to avoid masking)
     "EXECUTE-Block": {
-        "pattern": r"EXEC SQL\s+(?:AT\s+\S+\s+)?EXECUTE\s*$"
+        "pattern": r"EXEC SQL\s+(?:AT\s+\S+\s+)?EXECUTE\s*$",
         "end_pattern": r"END-EXEC;",
         "action": lambda lines: lines  # Maintain original content
     },
