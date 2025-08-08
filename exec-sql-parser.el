@@ -138,6 +138,19 @@ contain `root': t to stop searching parent directories."
   "Return a marker string for N."
   (format "%s:%d:" exec-sql-parser--marker-prefix n))
 
+(defun exec-sql-parser--action-fn (action)
+  "Return callable function from ACTION.
+
+ACTION may be a symbol, a lambda, or a `(function SYMBOL)` form
+resulting from using `#'` inside a quoted list.  In the latter case
+`plist-get` returns the cons cell `(function SYMBOL)`, which is not
+directly callable.  This helper normalizes that representation so the
+result can be passed to `funcall` without raising an `invalid-function`
+error."
+  (if (and (consp action) (eq (car action) 'function))
+      (cadr action)
+    action))
+
 (defun exec-sql-parser--strip-comments (string)
   "Return STRING with C style comments removed."
   (with-temp-buffer
@@ -179,7 +192,8 @@ REGISTRY defaults to `exec-sql-parser-registry`."
               (when (and (plist-get current-handler :end-pattern)
                          (string-match-p (plist-get current-handler :end-pattern)
                                          stripped))
-                (push (funcall (plist-get current-handler :action)
+                (push (funcall (exec-sql-parser--action-fn
+                                (plist-get current-handler :action))
                                (nreverse current-block))
                       captured)
                 (push (exec-sql-parser--marker marker-counter) output)
@@ -201,13 +215,14 @@ REGISTRY defaults to `exec-sql-parser-registry`."
                             current-block (list line)
                             current-handler details
                             current-construct construct)
-                    (push (funcall (plist-get details :action)
+                    (push (funcall (exec-sql-parser--action-fn
+                                    (plist-get details :action))
                                    (list line))
                           captured)
                     (push (exec-sql-parser--marker marker-counter) output)
                     (setq marker-counter (1+ marker-counter))))))
             (unless matched
-              (push line output)))))
+              (push line output))))))
     (when inside
       (error "Unterminated EXEC SQL %s" current-construct))
     (list (nreverse output) (nreverse captured))))
