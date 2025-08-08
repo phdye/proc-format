@@ -1,7 +1,7 @@
 
 test: python-tests emacs-check-parens emacs-eval
 
-pytest python-tests py-tests :
+python-tests py-tests pytest :
 	PYTHONPATH=src pytest tests
 
 emacs-eval e-eval :
