@@ -1,0 +1,22 @@
+# BasedOnStyle: Microsoft
+# BasedOnStyle: LLVM
+BasedOnStyle: Google
+#
+# Crucial to not wrap brace for editor indentation context
+BreakBeforeBraces: Attach
+BraceWrapping:
+  AfterControlStatement: false
+  AfterFunction: false
+ColumnLimit: 300
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+IndentWidth: 4
+ReflowComments: false
+# KeepFormFeed: true -- not recognized
+SortIncludes: false
+SortUsingDeclarations: false
+UseTab: Never
+#
+AlignConsecutiveAssignments: true
+AlignEscapedNewlines: true
+AlignOperands: true

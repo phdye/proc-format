@@ -1,0 +1,21 @@
+void demo() {
+    EXEC SQL EXECUTE
+    BEGIN
+        dbms_output.put_line('block');
+    END;
+    END-EXEC;
+
+    EXEC SQL EXECUTE IMMEDIATE :stmt
+      USING :var;
+
+    EXEC SQL EXECUTE S
+      USING :var;
+
+    EXEC SQL EXECUTE IMMEDIATE :stmt;
+    EXEC SQL EXECUTE IMMEDIATE :stmt USING :var;
+    EXEC SQL EXECUTE S;
+    EXEC SQL EXECUTE S USING :var;
+    EXEC SQL EXECUTE S INTO :out USING :var;
+
+    EXEC SQL SELECT * FROM emp WHERE empno = :var;
+}
