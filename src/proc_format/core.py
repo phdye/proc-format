@@ -6,7 +6,7 @@ import logging
 import shutil
 
 from .registry import EXEC_SQL_REGISTRY
-from .registry import re_DECLARE_BEGIN, re_DECLARE_END
+from .registry import re_DECLARE_BEGIN, re_DECLARE_END, re_BEGIN, re_END
 
 logging.basicConfig(level=logging.INFO)
 
@@ -92,16 +92,21 @@ def capture_exec_sql_blocks(ctx, lines):
     current_construct = None
     current_construct = None
     current_stripped_line = None
+    end_pattern = None
     marker_counter = 1  # Sequential counter for unique markers
 
     print("- Capture EXEC SQL segments ...")
 
     for line_number, line in enumerate(lines, 1):
+        line = line.rstrip()
         stripped_line = line.strip()
         if inside_block:
             current_block.append(line)  # Add the line to the current block
             # TODO: should check END pattern but is often fails
-            if re.match(current_handler["end_pattern"], stripped_line):
+            if re_BEGIN.match(stripped_line):
+                end_pattern = re_END
+                continue
+            if end_pattern.match(stripped_line):
                 # Block has ended; replace it with a marker
                 marker = get_marker(marker_counter)
                 output_lines.append(marker)
@@ -118,10 +123,13 @@ def capture_exec_sql_blocks(ctx, lines):
                 current_handler = None
                 current_construct = None
                 current_stripped_line = None
+                end_pattern = None
                 print("b", end="")
         else:
             for construct, details in EXEC_SQL_REGISTRY.items():
-                if re.match(details["pattern"], stripped_line):
+                if details["pattern"].match(stripped_line):
+                    if 'action' not in details:
+                        continue
                     if "error" in details:
                         raise ValueError("Unaccompanied block end marker detected at line {0}:\n{1}"
                             .format(line_number, line))
@@ -132,6 +140,7 @@ def capture_exec_sql_blocks(ctx, lines):
                         current_handler = details
                         current_construct = construct
                         current_stripped_line = stripped_line
+                        end_pattern = current_handler["end_pattern"]
                     else:
                         # Single-line match
                         captured_blocks.append(details["action"]([line]))
@@ -151,6 +160,7 @@ def capture_exec_sql_blocks(ctx, lines):
                     break
             else:
                 output_lines.append(line)
+    print("  : {}".format(marker_counter-1))
     print()
 
     if inside_block:

@@ -46,28 +46,40 @@ re_OPEN_CURSOR = re.compile(r'EXEC\s+SQL\s+OPEN\s+\w+\b')
 re_FETCH_CURSOR = re.compile(r'EXEC\s+SQL\s+FETCH\s+\w+\b')
 re_CLOSE_CURSOR = re.compile(r'EXEC\s+SQL\s+CLOSE\s+\w+\b')
 
+re_BEGIN = re.compile(r'BEGIN\b')
+re_END = re.compile(r'END\b')
+re_END_SEMICOLON = re.compile(r';$')
+
 EXEC_SQL_REGISTRY = {
+    "CLEANSE" : {
+        "pattern" : re.compile(r"a!b@c#d$e%f^g&"),
+        "action" : None # i.e. skip
+    },
     # *** Duplicate entries necessary due to Python 3.2.5 bug
     # ***   unnecessary in Python 3.9+
     #
     "ORACLE-Single-Line [1]": {
-        "pattern": r"EXEC ORACLE\b(.*);",
+        "pattern": re.compile(r"EXEC ORACLE\b.*;"),
         "action": lambda lines: lines  # Maintain original content
     },
     "ORACLE-Single-Line [2]": {
-        "pattern": r"EXEC ORACLE\b(.*);",
+        "pattern": re.compile(r"EXEC ORACLE\b "),
+        "action": lambda lines: lines  # Maintain original content
+    },
+    "ORACLE-Single-Line [3]": {
+        "pattern": re.compile(r"EXEC ORACLE\b "),
         "action": lambda lines: lines  # Maintain original content
     },
 
     "ORACLE-Multi-Line": {
-        "pattern": r"EXEC ORACLE\b",
-        "end_pattern": r".*;",  # Block terminates with semicolon
+        "pattern": re.compile(r"EXEC ORACLE\b"),
+        "end_pattern": re.compile(r".*;"),  # Block terminates with semicolon
         "action": lambda lines: lines  # Maintain original content
     },
 
     "EXECUTE-BEGIN-END-Multi-Line": {
-        "pattern": r"EXEC SQL EXECUTE\b",
-        "end_pattern": r"END-EXEC;",  # Block termination
+        "pattern": re.compile(r"EXEC SQL EXECUTE\b"),
+        "end_pattern": re.compile(r"END-EXEC;"),  # Block termination
         "action": lambda lines: lines  # Maintain original content
     },
 
@@ -75,17 +87,17 @@ EXEC_SQL_REGISTRY = {
     # ***   unnecessary in Python 3.9+
     #
     "STATEMENT-Single-Line [1]": {
-        "pattern": r"EXEC SQL\b(.*);",
+        "pattern": re.compile(r"EXEC SQL\b(.*);"),
         "action": lambda lines: lines  # Maintain original content
     },
     "STATEMENT-Single-Line [2]": {
-        "pattern": r"EXEC SQL\b(.*);",
+        "pattern": re.compile(r"EXEC SQL\b(.*);"),
         "action": lambda lines: lines  # Maintain original content
     },
 
     "STATEMENT-Multi-Line": {
-        "pattern": r"EXEC SQL\b",
-        "end_pattern": r".*;",  # Block terminates with semicolon
+        "pattern": re.compile(r"EXEC SQL\b"),
+        "end_pattern": re.compile(r".*;"),  # Block terminates with semicolon
         "action": lambda lines: lines  # Maintain original content
     },
 
@@ -96,14 +108,14 @@ EXEC_SQL_REGISTRY = {
 
     # END-EXEC for COBOL Compatibility
     "END-EXEC": {
-        "pattern": r"END-EXEC\b(.*);",
+        "pattern": re.compile(r"END-EXEC\b(.*);"),
         "action": lambda lines: lines,  # Maintain original content
         # "error" : None,
     },
 
     # ** 'END' must be after 'END-EXEC' as '-' matches '\b'
     "END": {
-        "pattern": r"END\b(.*);",
+        "pattern": re.compile(r"END\b(.*);"),
         "action": lambda lines: lines,  # Maintain original content
         "error" : None,
     }
