@@ -35,9 +35,30 @@
      :pattern "^EXEC ORACLE\\b"
      :end-pattern ".*;"
      :action #'identity)
-    ("EXECUTE-BEGIN-END-Multi-Line"
-     :pattern "^EXEC SQL EXECUTE\\b"
+    ;; EXEC SQL EXECUTE forms ordered to avoid masking
+    ("EXECUTE-Block"
+     :pattern "^EXEC SQL EXECUTE\\s*$"
      :end-pattern "END-EXEC;"
+     :action #'identity)
+    ("EXECUTE-Immediate-Multi"
+     :pattern "^EXEC SQL EXECUTE IMMEDIATE\\b[^;]*$"
+     :end-pattern ".*;\\s*$"
+     :action #'identity)
+    ("EXECUTE-Prepared-Multi"
+     :pattern "^EXEC SQL EXECUTE \(?!IMMEDIATE\)\\S[^;]*$"
+     :end-pattern ".*;\\s*$"
+     :action #'identity)
+    ("EXECUTE-Immediate-Single [1]"
+     :pattern "^EXEC SQL EXECUTE IMMEDIATE\\b[^;]*;\\s*$"
+     :action #'identity)
+    ("EXECUTE-Immediate-Single [2]"
+     :pattern "^EXEC SQL EXECUTE IMMEDIATE\\b[^;]*;\\s*$"
+     :action #'identity)
+    ("EXECUTE-Prepared-Single [1]"
+     :pattern "^EXEC SQL EXECUTE \(?!IMMEDIATE\)\\S[^;]*;\\s*$"
+     :action #'identity)
+    ("EXECUTE-Prepared-Single [2]"
+     :pattern "^EXEC SQL EXECUTE \(?!IMMEDIATE\)\\S[^;]*;\\s*$"
      :action #'identity)
     ("STATEMENT-Single-Line [1]"
      :pattern "^EXEC SQL\\b.*;"
@@ -48,9 +69,6 @@
     ("STATEMENT-Multi-Line"
      :pattern "^EXEC SQL\\b"
      :end-pattern ".*;"
-     :action #'identity)
-    ("END-EXEC"
-     :pattern "^END-EXEC\\b.*;"
      :action #'identity)
     ("END"
      :pattern "^END\\b.*;"

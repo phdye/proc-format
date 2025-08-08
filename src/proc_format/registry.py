@@ -67,9 +67,41 @@ DEFAULT_EXEC_SQL_REGISTRY = {
         "action": lambda lines: lines  # Maintain original content
     },
 
-    "EXECUTE-BEGIN-END-Multi-Line": {
-        "pattern": r"EXEC SQL EXECUTE\b",
-        "end_pattern": r"END-EXEC;",  # Block termination
+    # EXEC SQL EXECUTE forms (ordered to avoid masking)
+    "EXECUTE-Block": {
+        "pattern": r"EXEC SQL EXECUTE\s*$",
+        "end_pattern": r"END-EXEC;",
+        "action": lambda lines: lines  # Maintain original content
+    },
+
+    "EXECUTE-Immediate-Multi": {
+        "pattern": r"EXEC SQL EXECUTE\s+IMMEDIATE\\b[^;]*$",
+        "end_pattern": r".*;",
+        "action": lambda lines: lines  # Maintain original content
+    },
+
+    "EXECUTE-Prepared-Multi": {
+        "pattern": r"EXEC SQL EXECUTE\s+(?!IMMEDIATE\\b)\\S[^;]*$",
+        "end_pattern": r".*;",
+        "action": lambda lines: lines  # Maintain original content
+    },
+
+    # *** Duplicate entries necessary due to Python 3.2.5 bug
+    # ***   unnecessary in Python 3.9+
+    "EXECUTE-Immediate-Single [1]": {
+        "pattern": r"EXEC SQL EXECUTE\s+IMMEDIATE\\b[^;]*;\s*$",
+        "action": lambda lines: lines  # Maintain original content
+    },
+    "EXECUTE-Immediate-Single [2]": {
+        "pattern": r"EXEC SQL EXECUTE\s+IMMEDIATE\\b[^;]*;\s*$",
+        "action": lambda lines: lines  # Maintain original content
+    },
+    "EXECUTE-Prepared-Single [1]": {
+        "pattern": r"EXEC SQL EXECUTE\s+(?!IMMEDIATE\\b)\\S[^;]*;\s*$",
+        "action": lambda lines: lines  # Maintain original content
+    },
+    "EXECUTE-Prepared-Single [2]": {
+        "pattern": r"EXEC SQL EXECUTE\s+(?!IMMEDIATE\\b)\\S[^;]*;\s*$",
         "action": lambda lines: lines  # Maintain original content
     },
 
@@ -91,23 +123,12 @@ DEFAULT_EXEC_SQL_REGISTRY = {
         "action": lambda lines: lines  # Maintain original content
     },
 
-    # 'END-EXEC' and 'END' let use catch unterminated blocks as errors
+    # 'END' lets us catch unterminated blocks as errors
     #  -- either as a bug in the source or a bug in the extraction logic
-    #
-    # Hrpmph, just realized Pro*C allows 'END-EXEC' to randomly appear in the code
-
-    # END-EXEC for COBOL Compatibility
-    "END-EXEC": {
-        "pattern": r"END-EXEC\b(.*);",
-        "action": lambda lines: lines,  # Maintain original content
-        # "error" : None,
-    },
-
-    # ** 'END' must be after 'END-EXEC' as '-' matches '\b'
     "END": {
         "pattern": r"END\b(.*);",
         "action": lambda lines: lines,  # Maintain original content
-        "error" : None,
+        "error": None,
     }
 }
 
