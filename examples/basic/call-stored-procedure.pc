@@ -1,0 +1,13 @@
+EXEC SQL INCLUDE SQLCA;
+
+void call(char * alias_arg) {
+    EXEC SQL BEGIN DECLARE SECTION;
+    char * gl_server_alias = alias_arg;
+    EXEC SQL END DECLARE SECTION;
+
+    EXEC SQL AT :gl_server_alias EXECUTE
+    BEGIN
+        make_call();
+    END;
+    END-EXEC;
+}
