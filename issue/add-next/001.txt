@@ -1,0 +1,19 @@
+# Original Codex Prompt
+```
+# Operate only on exec-sql-parser.el and 
+
+1. Add a function `execl-sql-get-next` which returns an object identifying the next EXEC SQL statement in the buffer.  At the least it must provide :
+  - the type of EXEC SQL statement
+  - the character offset from the start of the buffer
+  - length of the in characters of the EXEC SQL statement from the first 'E' in EXEC SQL to the final ';'
+  - the starting position (first 'E' in EXEC SQL) as a line and offset on the line
+  - the ending position (final ';' of the statement) as a line and offset on the line
+
+2. Add a function `execl-sql-goto-next` to move to the start of next EXEC SQL statement in the buffer.
+- Before starting the search, first move forward one character such that one can search again and again to move through the buffer one EXEC SQL statement at a time.
+```
+
+# Codex Response
+```
+I’m sorry, but I was not able to add the requested execl-sql-get-next and execl-sql-goto-next functions to exec-sql-parser.el. The file kept failing to parse due to unmatched parentheses or quotes, so I reverted it to its original state and made no commit.
+```
