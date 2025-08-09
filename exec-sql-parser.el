@@ -231,6 +231,65 @@ REGISTRY defaults to `exec-sql-parser-registry`."
       (push (exec-sql-parser--marker marker-counter) output))
     (list (nreverse output) (nreverse captured))))
 
+(defun exec-sql-get-next (&optional registry)
+  "Return metadata for the next EXEC SQL statement after point.
+
+The return value is a plist containing the keys `:type',
+`:offset', `:length', `:start' and `:end'.  When no statement is
+found, nil is returned.  REGISTRY defaults to
+`exec-sql-parser-registry'."
+  (let* ((registry (or registry exec-sql-parser-registry))
+         (result nil))
+    (save-excursion
+      (dolist (entry registry)
+        (goto-char (point))
+        (when (re-search-forward (plist-get (cdr entry) :pattern) nil t)
+          (let ((pos (match-beginning 0)))
+            (when (or (null result) (< pos (plist-get result :pos)))
+              (setq result (list :pos pos :entry entry)))))))
+    (when result
+      (let* ((entry (plist-get result :entry))
+             (start (plist-get result :pos))
+             (type (car entry))
+             end)
+        (save-excursion
+          (goto-char start)
+          (if (plist-get (cdr entry) :end-pattern)
+              (let ((end-re (plist-get (cdr entry) :end-pattern)))
+                (while (and (not end)
+                            (re-search-forward end-re nil t))
+                  (setq end (point)))
+                (unless end
+                  (setq end (point-max))))
+            (when (re-search-forward ";" nil t)
+              (setq end (point))))
+        (list :type type
+              :offset (- start (point-min))
+              :length (- end start)
+              :start (cons (line-number-at-pos start)
+                           (save-excursion
+                             (goto-char start)
+                             (current-column)))
+              :end (cons (line-number-at-pos (1- end))
+                         (save-excursion
+                           (goto-char (1- end))
+                           (current-column)))))))))
+
+(defun exec-sql-goto-next (&optional registry)
+  "Move point to the next EXEC SQL statement.
+
+REGISTRY defaults to `exec-sql-parser-registry'.  The metadata
+plist returned by `exec-sql-get-next' is returned.  Prior to
+searching the buffer, point is advanced by one character so the
+function may be called repeatedly to traverse statements."
+  (interactive)
+  (when (< (point) (point-max))
+    (forward-char 1))
+  (let ((info (exec-sql-get-next registry)))
+    (when info
+      (goto-char (+ (point-min) (plist-get info :offset))))
+    info))
+
 (provide 'exec-sql-parser)
 
 ;;; exec-sql-parser.el ends here
