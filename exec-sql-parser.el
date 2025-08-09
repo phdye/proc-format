@@ -291,6 +291,30 @@ function may be called repeatedly to traverse statements."
       (goto-char (+ (point-min) (plist-get info :offset))))
     info))
 
+(defun exec-sql-count-remaining (&optional registry)
+  "Return number of remaining EXEC SQL statements after point.
+
+When a region is active, only the portion from point to the end of the
+region is considered.  Internally uses `exec-sql-goto-next' to traverse
+statements.  Point is restored to its original location after counting.
+REGISTRY defaults to `exec-sql-parser-registry'."
+  (interactive)
+  (let ((count 0))
+    (save-excursion
+      (save-restriction
+        (when (use-region-p)
+          (narrow-to-region (point) (region-end)))
+        (let ((initial (exec-sql-get-next registry)))
+          (when (and initial
+                     (= (point)
+                        (+ (point-min) (plist-get initial :offset))))
+            (setq count (1+ count))))
+        (while (exec-sql-goto-next registry)
+          (setq count (1+ count)))))
+    (when (called-interactively-p 'interactive)
+      (message "%d" count))
+    count))
+
 (provide 'exec-sql-parser)
 
 ;;; exec-sql-parser.el ends here
