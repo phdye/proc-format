@@ -140,4 +140,66 @@ string.  Errors are signaled when markers and segments do not align."
       (should (string= (plist-get info :type) "STATEMENT-Single-Line [1]"))
       (should (= (plist-get info :offset) 0)))))
 
+(ert-deftest exec-sql-parser-count-remaining-none ()
+  (with-temp-buffer
+    (insert "int main(){return 0;}\n")
+    (goto-char (point-min))
+    (let ((pos (point)))
+      (should (= 0 (exec-sql-count-remaining)))
+      (should (= pos (point))))))
+
+(ert-deftest exec-sql-parser-count-remaining-full-buffer ()
+  (with-temp-buffer
+    (insert "EXEC SQL SELECT 1;\nEXEC SQL SELECT 2;\nEXEC SQL SELECT 3;\n")
+    (goto-char (point-min))
+    (let ((pos (point)))
+      (should (= 3 (exec-sql-count-remaining)))
+      (should (= pos (point))))))
+
+(ert-deftest exec-sql-parser-count-remaining-after-first ()
+  (with-temp-buffer
+    (insert "EXEC SQL SELECT 1;\nEXEC SQL SELECT 2;\nEXEC SQL SELECT 3;\n")
+    (goto-char (point-min))
+    (exec-sql-goto-next)
+    (let ((pos (point)))
+      (should (= 2 (exec-sql-count-remaining)))
+      (should (= pos (point))))))
+
+(ert-deftest exec-sql-parser-count-remaining-region ()
+  (with-temp-buffer
+    (let ((transient-mark-mode t))
+      (insert "EXEC SQL SELECT 1;\nEXEC SQL SELECT 2;\nEXEC SQL SELECT 3;\n")
+      (goto-char (point-min))
+      (search-forward "EXEC SQL SELECT 2;")
+      (forward-line 1)
+      (set-mark (point))
+      (goto-char (point-min))
+      (activate-mark)
+      (let ((pos (point)))
+        (should (= 2 (exec-sql-count-remaining)))
+        (should (= pos (point))))
+      (deactivate-mark))))
+
+(ert-deftest exec-sql-parser-count-remaining-region-inverse ()
+  (with-temp-buffer
+    (let ((transient-mark-mode t))
+      (insert "EXEC SQL SELECT 1;\nEXEC SQL SELECT 2;\n")
+      (goto-char (point-min))
+      (set-mark (point))
+      (search-forward "EXEC SQL SELECT 2;")
+      (activate-mark)
+      (let ((pos (point)))
+        (should (= 0 (exec-sql-count-remaining)))
+        (should (= pos (point))))
+      (deactivate-mark))))
+
+(ert-deftest exec-sql-parser-count-remaining-stress ()
+  (with-temp-buffer
+    (dotimes (_ 200)
+      (insert "EXEC SQL SELECT 1;\n"))
+    (goto-char (point-min))
+    (let ((pos (point)))
+      (should (= 200 (exec-sql-count-remaining)))
+      (should (= pos (point))))))
+
 (provide 'test-exec-sql-parser)
