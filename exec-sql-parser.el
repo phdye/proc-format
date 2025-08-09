@@ -260,8 +260,12 @@ found, nil is returned.  REGISTRY defaults to
             (if (null candidate)
                 (setq start nil)
               (let ((pos (car candidate)))
-                (goto-char pos)
-                (setq result (list :pos pos :entry (cdr candidate))))))))
+                (if (and exec-sql-parser-ignore-comments
+                         (nth 4 (syntax-ppss pos)))
+                    (setq start (1+ pos))
+                  (progn
+                    (goto-char pos)
+                    (setq result (list :pos pos :entry (cdr candidate))))))))))
     (when result
       (let* ((entry (plist-get result :entry))
              (start (plist-get result :pos))
