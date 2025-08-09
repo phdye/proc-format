@@ -130,4 +130,14 @@ string.  Errors are signaled when markers and segments do not align."
         (should (equal (point) (+ (point-min) (plist-get g2 :offset))))
         (should (= (plist-get g2 :offset) 29))))))
 
+(ert-deftest exec-sql-parser-get-next-across-types ()
+  "`exec-sql-get-next' should return the earliest statement regardless of construct order."
+  (with-temp-buffer
+    (insert "EXEC SQL INCLUDE SQLCA;\nEXEC ORACLE OPTION (HOLD_CURSOR=YES);\n")
+    (goto-char (point-min))
+    (let ((info (exec-sql-get-next)))
+      (should info)
+      (should (string= (plist-get info :type) "STATEMENT-Single-Line [1]"))
+      (should (= (plist-get info :offset) 0)))))
+
 (provide 'test-exec-sql-parser)
