@@ -130,6 +130,23 @@ string.  Errors are signaled when markers and segments do not align."
         (should (equal (point) (+ (point-min) (plist-get g2 :offset))))
         (should (= (plist-get g2 :offset) 29))))))
 
+(ert-deftest exec-sql-parser-get-next-start-end ()
+  (with-temp-buffer
+    (insert "  EXEC SQL SELECT 1;   \n")
+    (goto-char (point-min))
+    (let ((info (exec-sql-get-next)))
+      (should info)
+      (should (= (plist-get info :offset) 2))
+      (should (equal (plist-get info :start) '(1 . 2)))
+      (should (equal (plist-get info :end) '(1 . 19)))))
+  (with-temp-buffer
+    (insert "int x;\n  EXEC SQL SELECT 1;   \n")
+    (goto-char (point-min))
+    (let ((info (exec-sql-goto-next)))
+      (should info)
+      (should (= (current-column) 2))
+      (should (equal (point) (+ (point-min) (plist-get info :offset)))))))
+
 (ert-deftest exec-sql-parser-get-next-across-types ()
   "`exec-sql-get-next' should return the earliest statement regardless of construct order."
   (with-temp-buffer
