@@ -1,7 +1,14 @@
+"""Registry for modular EXEC SQL handling.
+
+The module exposes helpers used by the formatter and the accompanying
+Emacs integration.  Each entry in the registry maps a construct name to
+regular expression patterns and optional handlers.
+"""
+
 # Registry for Modular EXEC SQL Handling
 # --------------------------------------
 # This module defines a registry (EXEC_SQL_REGISTRY) for handling different
-# EXEC SQL constructs.  Previously each specic construct was parsed.  That was
+# EXEC SQL constructs.  Previously each specific construct was parsed.  That was
 # overkill and made the code more time consuming to maintain.  Since we actually
 # do not format the EXEC SQL lines, we can simply maintain the original content
 # and indent style offset only to align 'EXEC SQL' with C statements the same C block.
@@ -21,10 +28,10 @@
 #
 # --- Registry for Modular EXEC SQL Handling ---
 #
-# Since we are not formating the EXEC SQL lines, simply maintain the original content and indent style offset only
-# to align 'EXEC SQL' with statements the same block.
+# Since we are not formatting the EXEC SQL lines, simply maintain the original content and indent style offset only
+# to align 'EXEC SQL' with statements in the same block.
 #
-# Shoould we start formatting EXEC SQL lines, we would most likely strip() them:
+# Should we start formatting EXEC SQL lines, we would most likely strip() them:
 #    "action": lambda lines: [lines[0].strip()]
 #
 # However, most Pro*C EXEC SQL code is already hand formatted and quite

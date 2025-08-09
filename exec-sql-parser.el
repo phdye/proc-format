@@ -6,9 +6,12 @@
 
 ;; Provides a reusable component for detecting and capturing Oracle Pro*C
 ;; EXEC SQL constructs.  It mirrors the Python implementation used by the
-;; formatter while exposing a customizable registry of patterns.  By default
-;; the parser ignores constructs appearing inside C comments, though this
-;; behaviour can be bypassed through `exec-sql-parser-ignore-comments'.
+;; formatter while exposing a customizable registry of patterns.  The library
+;; is intended for editor tooling: navigation and analysis of embedded SQL.
+;;
+;; By default the parser ignores constructs appearing inside C comments,
+;; though this behaviour can be bypassed through
+;; `exec-sql-parser-ignore-comments'.
 
 ;;; Code:
 
@@ -82,7 +85,8 @@ belonging to the construct and should return the processed lines."
   :type 'sexp
   :group 'exec-sql-parser)
 
-(defconst exec-sql-parser--marker-prefix "// EXEC SQL MARKER")
+(defconst exec-sql-parser--marker-prefix "// EXEC SQL MARKER"
+  "Prefix inserted for temporary placeholders during parsing.")
 
 ;;;###autoload
 (defun exec-sql-parser-load-registry (start-dir &optional search-parents)
@@ -298,6 +302,7 @@ found, nil is returned.  REGISTRY defaults to
                            (current-column))))))))
     ))
 
+;;;###autoload
 (defun exec-sql-goto-next (&optional registry)
   "Move point to the next EXEC SQL statement.
 
@@ -313,6 +318,7 @@ function may be called repeatedly to traverse statements."
       (goto-char (+ (point-min) (plist-get info :offset))))
     info))
 
+;;;###autoload
 (defun exec-sql-count-remaining (&optional registry)
   "Return number of remaining EXEC SQL statements after point.
 

@@ -1,12 +1,16 @@
-import os
+"""Command line interface for proc_format."""
 
+import os
 import argparse
 
 from proc_format import process_file, ProCFormatterContext
 
 def main():
+    """Entry point for the `proc_format` command line interface."""
 
-    parser = argparse.ArgumentParser(description="Format Pro*C files by aligning EXEC SQL and formatting C code.")
+    parser = argparse.ArgumentParser(
+        description="Format Pro*C files by aligning EXEC SQL and formatting C code."
+    )
     parser.add_argument("input_file", help="Input file to process.")
     parser.add_argument("output_file", help="Output file to save the formatted content.")
     parser.add_argument("--clang-format", default="clang-format", help="Path to clang-format executable.")

@@ -1,3 +1,5 @@
+"""Core formatting routines for proc_format."""
+
 import sys
 import os
 import re
