@@ -136,7 +136,8 @@ def capture_exec_sql_blocks(ctx, lines, registry):
         stripped_line = line.strip()
         if inside_block:
             current_block.append(line)  # Continue accumulating block
-            # TODO: should check END pattern but is often fails
+            # Detect the end of the current block using the handler's
+            # ``end_pattern``.
             if re.match(current_handler["end_pattern"], stripped_line):
                 # Block has ended; replace it with a marker
                 marker = get_marker(marker_counter)
@@ -209,8 +210,8 @@ def format_with_clang(ctx, content):
 
     ``ctx.clang_format_path`` is executed as a subprocess.  Any
     ``clang-format`` failure results in ``RuntimeError``.  On Python
-    versions earlier than 3.7 the function handles the byte/string
-    conversions explicitly.
+    versions earlier than 3.7 the function encodes the input to bytes
+    to satisfy ``subprocess``'s expectations.
     """
     print("- Apply clang-format to C code content ...")
     popen_additional_args = {}
@@ -218,7 +219,7 @@ def format_with_clang(ctx, content):
         popen_additional_args["text"] = True
     else:
         # Python 3.2 subprocess expects byte strings
-        if True : # if hasattr(content, "encode"):
+        if hasattr(content, "encode"):
             content = content.encode()
     process = subprocess.Popen([ctx.clang_format_path],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
