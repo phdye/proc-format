@@ -1,0 +1,98 @@
+/*********************************************************************************************
+ *
+ *
+ *
+ *********************************************************************************************/
+ 
+#include <stdio.h>
+#include <stdlib.h>
+#include <syslog.h>
+#include <string.h>
+#include <errno.h>
+#include <malloc.h>
+#include <time.h>
+#include <math.h>
+
+EXEC ORACLE OPTION (HOLD_CURSOR=YES);
+EXEC ORACLE OPTION (RELEASE_CURSOR=NO);
+EXEC ORACLE OPTION (MAXOPENCURSORS=50);
+EXEC SQL INCLUDE SQLCA;
+
+#define SUCCESS 0
+#define FAIL    1
+ 
+#define TRUE  1
+#define FALSE 0
+ 
+#define PRELIM 0
+#define FINAL  1
+
+void main(int argc, char **argv) {
+
+  EXEC SQL WHENEVER SQLERROR DO sql_error(1, "Error main()");
+
+  return(0);
+}
+
+void validate_fb() {
+
+    EXEC SQL WHENEVER SQLERROR DO sql_error(ERROR, "ERROR validate_fb():");
+
+    while(invoice_list_ptr != INVNULLPTR) {
+
+       EXEC SQL AT :server_alias
+       SELECT COUNT(*)
+       INTO :count
+       FROM APPS.PERIODS
+       WHERE PERIOD_STATUS = 'Open'
+       AND  PERIOD_NAME = TO_CHAR(TO_DATE(:period,'MON-RR'),'MON-YYYY');
+
+        /************* perform the COMMON VALIDATION ROUTINE for validation**************
+        ************ this is a packaged procedure residing on GL DB.
+        EXEC SQL AT :server_alias EXECUTE
+        BEGIN
+            foobar(:p);
+        END;
+        END-EXEC;
+        */
+    }
+}
+
+void get_cogen_data() {
+
+  EXEC SQL WHENEVER NOT FOUND DO true();
+
+  EXEC SQL AT :pwrline_server_alias
+    SELECT COUNT(*)
+      INTO :invoice_count
+      FROM PWRLINE.CUSTOMER C, PWRLINE.TVAGLPOSTINGSTATUS GL, PWRLINE.TVACSC CSC
+      WHERE GL.GLPOSTSTATUS = 'PENDING'
+      AND C.UIDCSC = CSC.UIDCSC
+      AND C.CUSTOMERID = GL.CUSTOMERID
+      AND C.CUSTOMERTYPECODE = 'COGEN'
+      AND GL.GLPERIOD = :gl_period;
+
+  if (invoice_count <= 0) {
+     fprintf(rptFile, "No PENDING ...: %s\n", fb.arr);
+     exit(FAIL);
+  }
+
+  EXEC SQL WHENEVER NOT FOUND DO break;
+  EXEC SQL AT :server_alias DECLARE csr CURSOR FOR
+    SELECT GL.INVOICENO,
+           GL.INVOICEREVNO,
+           C.CUSTOMERID,
+           CSC.NAME,
+           GL.GLPERIOD
+      FROM PWRLINE.CUSTOMER C, PWRLINE.TVAGLPOSTINGSTATUS GL, PWRLINE.TVACSC CSC, PWRLINE.INVDSSUMMARY INV
+     WHERE GL.GLPOSTSTATUS = 'PENDING'
+       AND C.UIDCSC = CSC.UIDCSC
+       AND C.CUSTOMERID = GL.CUSTOMERID
+       AND INV.INVOICENO = GL.INVOICENO
+       AND INV.INVOICEREVNO = GL.INVOICEREVNO
+       AND C.CUSTOMERTYPECODE = 'COGEN'
+       AND GL.GLPERIOD = :gl_period
+       ORDER BY GL.CUSTOMERID;
+
+  EXEC SQL OPEN c_invoice_1;
+}
