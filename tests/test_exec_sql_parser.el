@@ -202,4 +202,32 @@ string.  Errors are signaled when markers and segments do not align."
       (should (= 200 (exec-sql-count-remaining)))
       (should (= pos (point))))))
 
+(ert-deftest exec-sql-parser-count-three ()
+  (with-temp-buffer
+    (let ((transient-mark-mode t))
+      (insert "
+#define SUCCESS 0
+#define FAIL    1
+ 
+EXEC SQL INCLUDE SQLCA;
+
+#define OTHER  1
+
+void main(int argc, char **argv) {
+
+  EXEC SQL WHENEVER SQLERROR DO sql_error(1, "Error main()");
+
+  EXEC SQL SELECT 1;
+")
+      (goto-char (point-min))
+      (search-forward "EXEC SQL SELECT 2;")
+      (forward-line 1)
+      (set-mark (point))
+      (goto-char (point-min))
+      (activate-mark)
+      (let ((pos (point)))
+        (should (= 3 (exec-sql-count-remaining)))
+        (should (= pos (point))))
+      (deactivate-mark))))
+
 (provide 'test-exec-sql-parser)
