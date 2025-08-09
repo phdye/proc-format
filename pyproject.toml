@@ -1,0 +1,18 @@
+[project]
+name = "proc-format"
+version = "0.1.0"
+description = "Format Pro*C source files aligning EXEC SQL blocks."
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [{name = "Proc Format Contributors"}]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development :: Code Formatters",
+]
+urls = {"Homepage" = "https://example.com/proc-format", "Issues" = "https://example.com/proc-format/issues"}
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

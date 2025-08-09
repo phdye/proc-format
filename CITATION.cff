@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+title: proc-format
+message: If you use this project, please cite it as below.
+authors:
+  - family-names: Contributors
+    given-names: Proc Format
+license: MIT
+version: 0.1.0
