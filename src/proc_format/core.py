@@ -21,7 +21,7 @@ AFTER_C = "after.c"                 # C content after formatting
 AFTER_PC = "after.pc"               # Pro*C content after formatting
 ERRORS_TXT = "errors.txt"           # List of segments with errors, one per line: <segment-idx>
 SQL_DIR = "sql"                     # Directory with extracted EXEC SQL segments
-
+EXEC_SQL_FILE_MODEL = "exec-sql--%s.txt"  # Template for combined EXEC SQL file name before/after formatting
 
 class ProCFormatterContext:
     """Runtime configuration for :func:`process_file`.
@@ -36,6 +36,8 @@ class ProCFormatterContext:
     __slots__ = [
         "input_file",
         "output_file",
+        "exec_sql_before_fh",
+        "exec_sql_after_fh",
         "clang_format_path",
         "keep",
         "debug",
@@ -95,6 +97,13 @@ def process_file(ctx):
         pc_before = f.read()
     write_file(ctx.debug, BEFORE_PC, pc_before)
 
+    file_name = EXEC_SQL_FILE_MODEL % "before"
+    ctx.exec_sql_before_fh = open(os.path.join(ctx.debug, file_name), 'w') or \
+                                exit("Failed to create file '%s'" % file_name)
+    file_name = EXEC_SQL_FILE_MODEL % "after"
+    ctx.exec_sql_after_fh = open(os.path.join(ctx.debug, file_name), 'w') or \
+                                exit("Failed to create file '%s'" % file_name)
+
     # Step 1: Mark EXEC SQL lines
     marked_content, exec_sql_segments = capture_exec_sql_blocks(ctx, pc_before.splitlines(), ctx.registry)
     c_before = "\n".join(marked_content)
@@ -105,8 +114,11 @@ def process_file(ctx):
     write_file(ctx.debug, AFTER_C, c_after)
 
     # Step 3: Restore EXEC SQL lines
-    pc_after = restore_exec_sql_blocks(c_after, exec_sql_segments)
+    pc_after = restore_exec_sql_blocks(ctx, c_after, exec_sql_segments)
     write_file(ctx.debug, AFTER_PC, pc_after)
+
+    ctx.exec_sql_before_fh.close()
+    ctx.exec_sql_after_fh.close()
 
     # Step 4: Write output to file
     with open(ctx.output_file, 'w') as f:
@@ -145,12 +157,13 @@ def capture_exec_sql_blocks(ctx, lines, registry):
                 marker = get_marker(marker_counter)
                 output_lines.append(marker)
                 captured_blocks.append(current_handler["action"](current_block))
-                with open_file(ctx.sql_dir, marker_counter) as f:
+                with open_file(ctx.sql_dir, "%03d" % marker_counter) as f:
                     f.write(("Construct:  '{}'\n".format(current_construct))
                            +("Pattern:    '{}'\n".format(current_handler["pattern"]))
                            +("EndPattern: '{}'\n\n".format(current_handler["end_pattern"]))
                            +("Stripped:  '{}'\n\n".format(current_stripped_line))
                            +("\n".join(current_block)+"\n\n"))
+                ctx.exec_sql_before_fh.write("\n".join(current_block) + "\n= = = = =\n")
                 marker_counter += 1
                 inside_block = False
                 current_block = []  # Reset the block
@@ -174,11 +187,12 @@ def capture_exec_sql_blocks(ctx, lines, registry):
                     else:
                         # Single-line match
                         captured_blocks.append(details["action"]([line]))
-                        with open_file(ctx.sql_dir, marker_counter) as f:
+                        with open_file(ctx.sql_dir, "%03d" % marker_counter) as f:
                             f.write(("Construct:  '{}'\n".format(construct))
                                    +("Pattern:    '{}'\n\n".format(details["pattern"]))
                                    +("Stripped:   '{}'\n\n".format(stripped_line))
                                    +(line)+"\n\n")
+                        ctx.exec_sql_before_fh.write(line + "\n= = = = =\n")
                         marker = get_marker(marker_counter)
                         if re.match(re_DECLARE_BEGIN, stripped_line):
                             marker = '{ ' + marker
@@ -196,12 +210,13 @@ def capture_exec_sql_blocks(ctx, lines, registry):
         marker = get_marker(marker_counter)
         output_lines.append(marker)
         captured_blocks.append(current_handler["action"](current_block))
-        with open_file(ctx.sql_dir, marker_counter) as f:
+        with open_file(ctx.sql_dir, "%03d" % marker_counter) as f:
             f.write(("Construct:  '{0}'\n".format(current_construct))
                    +("Pattern:    '{0}'\n".format(current_handler["pattern"]))
                    +("EndPattern: '{0}'\n\n".format(current_handler["end_pattern"]))
                    +("Stripped:  '{0}'\n\n".format(current_stripped_line))
                    +("\n".join(current_block)+"\n\n"))
+        ctx.exec_sql_before_fh.write("\n".join(current_block) + "\n= = = = =\n")
         marker_counter += 1
         print("b", end="")
 
@@ -233,7 +248,7 @@ def format_with_clang(ctx, content):
         output = output.decode()
     return output
 
-def restore_exec_sql_blocks(content, exec_sql_segments):
+def restore_exec_sql_blocks(ctx, content, exec_sql_segments):
     """Replace markers in ``content`` with EXEC SQL blocks.
 
     ``exec_sql_segments`` must contain the original text for each marker
@@ -257,6 +272,7 @@ def restore_exec_sql_blocks(content, exec_sql_segments):
                                         .format(expected_marker, marker_number))
                 # get the block, split it on newline
                 lines = exec_sql_segments[marker_number - 1]
+                ctx.exec_sql_after_fh.write("\n".join(lines) + "\n= = = = =\n")
                 # Align EXEC SQL with C statements
                 indent = len(line) - len(line.lstrip())
                 first = lines.pop(0)
