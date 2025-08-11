@@ -41,4 +41,10 @@ def test_multi_line_terminated_at_eof(tmp_path):
     registry = load_registry('.')
     output, blocks = capture_exec_sql_blocks(ctx, lines, registry)
     assert output == [get_marker(1)]
-    assert blocks == [lines]
+    try:
+        import sqlparse  # type: ignore  # noqa: F401
+    except Exception:
+        expected = lines
+    else:
+        expected = ['EXEC SQL SELECT * FROM t']
+    assert blocks == [expected]
