@@ -7,8 +7,13 @@ import subprocess
 import logging
 import shutil
 
+try:
+    import sqlparse
+except ImportError:  # pragma: no cover - sqlparse optional
+    sqlparse = None
+
 from .registry import load_registry
-from .registry import re_DECLARE_BEGIN, re_DECLARE_END
+from .registry import re_DECLARE_BEGIN, re_DECLARE_END, re_EXEC_SQL, re_INDENT
 
 logging.basicConfig(level=logging.INFO)
 
@@ -114,7 +119,7 @@ def process_file(ctx):
     write_file(ctx.debug, AFTER_C, c_after)
 
     # Step 3: Restore EXEC SQL lines
-    pc_after = restore_exec_sql_blocks(ctx, c_after, exec_sql_segments)
+    pc_after = restore_exec_sql_blocks(c_after, exec_sql_segments, ctx)
     write_file(ctx.debug, AFTER_PC, pc_after)
 
     ctx.exec_sql_before_fh.close()
@@ -125,6 +130,47 @@ def process_file(ctx):
         f.write(pc_after)
 
     print("File processed successfully: {0}\nd".format(ctx.input_file))
+
+def format_exec_sql_block(lines, construct):
+    """Format EXEC SQL ``lines`` using ``sqlparse`` unless ORACLE.
+
+    ``construct`` identifies the registry entry.  When ``sqlparse`` is
+    unavailable or the block begins with ``EXEC ORACLE`` no formatting is
+    applied.  The function returns a list of lines.
+    """
+    if not lines:
+        return lines
+    first = lines[0].lstrip()
+    if first.startswith('EXEC ORACLE') or construct.startswith('ORACLE'):
+        return lines
+    if sqlparse is None:
+        return lines
+    match_indent = re_INDENT.match(lines[0])
+    indent = match_indent.group(1)
+    content = match_indent.group(2)
+    m = re_EXEC_SQL.match(content)
+    if not m:
+        return lines
+    rest = m.group(2) or ''
+    sql_lines = []
+    if rest:
+        sql_lines.append(rest.strip())
+    for line in lines[1:]:
+        sql_lines.append(line.strip())
+    sql_text = "\n".join(sql_lines)
+    try:
+        formatted = sqlparse.format(sql_text, keyword_case='upper')
+    except Exception:
+        return lines
+    formatted_lines = formatted.splitlines()
+    output = []
+    if formatted_lines:
+        output.append(indent + 'EXEC SQL ' + formatted_lines[0].lstrip())
+        for line in formatted_lines[1:]:
+            output.append(indent + line)
+    else:
+        output = lines
+    return output
 
 def capture_exec_sql_blocks(ctx, lines, registry):
     """Extract EXEC SQL blocks from ``lines``.
@@ -156,14 +202,16 @@ def capture_exec_sql_blocks(ctx, lines, registry):
                 # Block has ended; replace it with a marker
                 marker = get_marker(marker_counter)
                 output_lines.append(marker)
-                captured_blocks.append(current_handler["action"](current_block))
+                captured = current_handler["action"](current_block)
+                captured_blocks.append(format_exec_sql_block(captured, current_construct))
                 with open_file(ctx.sql_dir, "%03d" % marker_counter) as f:
                     f.write(("Construct:  '{}'\n".format(current_construct))
                            +("Pattern:    '{}'\n".format(current_handler["pattern"]))
                            +("EndPattern: '{}'\n\n".format(current_handler["end_pattern"]))
                            +("Stripped:  '{}'\n\n".format(current_stripped_line))
                            +("\n".join(current_block)+"\n\n"))
-                ctx.exec_sql_before_fh.write("\n".join(current_block) + "\n= = = = =\n")
+                if hasattr(ctx, 'exec_sql_before_fh'):
+                    ctx.exec_sql_before_fh.write("\n".join(current_block) + "\n= = = = =\n")
                 marker_counter += 1
                 inside_block = False
                 current_block = []  # Reset the block
@@ -186,13 +234,15 @@ def capture_exec_sql_blocks(ctx, lines, registry):
                         current_stripped_line = stripped_line
                     else:
                         # Single-line match
-                        captured_blocks.append(details["action"]([line]))
+                        captured = details["action"]([line])
+                        captured_blocks.append(format_exec_sql_block(captured, construct))
                         with open_file(ctx.sql_dir, "%03d" % marker_counter) as f:
                             f.write(("Construct:  '{}'\n".format(construct))
                                    +("Pattern:    '{}'\n\n".format(details["pattern"]))
                                    +("Stripped:   '{}'\n\n".format(stripped_line))
                                    +(line)+"\n\n")
-                        ctx.exec_sql_before_fh.write(line + "\n= = = = =\n")
+                        if hasattr(ctx, 'exec_sql_before_fh'):
+                            ctx.exec_sql_before_fh.write(line + "\n= = = = =\n")
                         marker = get_marker(marker_counter)
                         if re.match(re_DECLARE_BEGIN, stripped_line):
                             marker = '{ ' + marker
@@ -209,14 +259,16 @@ def capture_exec_sql_blocks(ctx, lines, registry):
     if inside_block:
         marker = get_marker(marker_counter)
         output_lines.append(marker)
-        captured_blocks.append(current_handler["action"](current_block))
+        captured = current_handler["action"](current_block)
+        captured_blocks.append(format_exec_sql_block(captured, current_construct))
         with open_file(ctx.sql_dir, "%03d" % marker_counter) as f:
             f.write(("Construct:  '{0}'\n".format(current_construct))
                    +("Pattern:    '{0}'\n".format(current_handler["pattern"]))
                    +("EndPattern: '{0}'\n\n".format(current_handler["end_pattern"]))
                    +("Stripped:  '{0}'\n\n".format(current_stripped_line))
                    +("\n".join(current_block)+"\n\n"))
-        ctx.exec_sql_before_fh.write("\n".join(current_block) + "\n= = = = =\n")
+        if hasattr(ctx, 'exec_sql_before_fh'):
+            ctx.exec_sql_before_fh.write("\n".join(current_block) + "\n= = = = =\n")
         marker_counter += 1
         print("b", end="")
 
@@ -248,13 +300,14 @@ def format_with_clang(ctx, content):
         output = output.decode()
     return output
 
-def restore_exec_sql_blocks(ctx, content, exec_sql_segments):
+def restore_exec_sql_blocks(content, exec_sql_segments, ctx=None):
     """Replace markers in ``content`` with EXEC SQL blocks.
 
     ``exec_sql_segments`` must contain the original text for each marker
     in order.  Restored lines are indented to match the marker they
     replace.  Errors are raised for out-of-sequence markers or when not
-    all segments are consumed.
+    all segments are consumed.  ``ctx`` is optional and used only for
+    debugging output.
     """
     lines = content.split('\n')
     restored_lines = []
@@ -270,10 +323,9 @@ def restore_exec_sql_blocks(ctx, content, exec_sql_segments):
                 if marker_number != expected_marker:
                     raise ValueError("Marker out of sequence: expected {0}, found {1}"
                                         .format(expected_marker, marker_number))
-                # get the block, split it on newline
                 lines = exec_sql_segments[marker_number - 1]
-                ctx.exec_sql_after_fh.write("\n".join(lines) + "\n= = = = =\n")
-                # Align EXEC SQL with C statements
+                if ctx is not None and hasattr(ctx, 'exec_sql_after_fh'):
+                    ctx.exec_sql_after_fh.write("\n".join(lines) + "\n= = = = =\n")
                 indent = len(line) - len(line.lstrip())
                 first = lines.pop(0)
                 restored_lines.append(" " * indent + first.lstrip())
@@ -282,7 +334,6 @@ def restore_exec_sql_blocks(ctx, content, exec_sql_segments):
                     delta = indent - prior_indent
                     (more, less) = (0, delta) if delta < 0 else (delta, 0)
                     for line in lines:
-                        # this_indent = len(line) - len(line.lstrip()) + delta
                         restored_lines.append(" " * more + line[-less:])
                 expected_marker += 1
                 print(".", end="")
