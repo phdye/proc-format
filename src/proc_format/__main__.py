@@ -18,6 +18,12 @@ def main():
     parser.add_argument("--keep", action="store_true", help="Do not delete debug directory before processing.")
     parser.add_argument("--no-registry-parents", action="store_true",
                         help="Do not search parent directories for .exec-sql-parser files.")
+    parser.add_argument("--terse", action="store_true",
+                        help="Suppress non-critical warnings.")
+    parser.add_argument("--silent", action="store_true",
+                        help="Suppress all output.")
+    parser.add_argument("-v", "--verbose", action="count", default=0,
+                        help="Increase verbosity; repeat for more detail.")
 
     args = parser.parse_args()
 
