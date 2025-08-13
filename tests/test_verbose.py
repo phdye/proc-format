@@ -32,3 +32,18 @@ def test_warn_suppressed_with_terse_or_silent(ctx, capsys):
     out = capsys.readouterr()
     assert out.err == ''
 
+
+def test_sqlparse_receives_verbosity(monkeypatch):
+    import sqlparse
+
+    recorded = {}
+
+    def fake_format(sql_text, **options):
+        recorded['verbosity'] = sqlparse.verbosity
+        return sql_text
+
+    monkeypatch.setattr(sqlparse, 'format', fake_format)
+    lines = ['EXEC SQL select * from dual;']
+    format_exec_sql_block(lines, 'STATEMENT-Single-Line [1]', Ctx(3))
+    assert recorded['verbosity'] == 3
+

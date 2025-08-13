@@ -175,11 +175,15 @@ def format_exec_sql_block(lines, construct, ctx=None):
         sql_lines.append(line.strip())
     sql_text = "\n".join(sql_lines)
     vprint(ctx, 1, "sqlparse: formatting EXEC SQL block")
+    old_verbosity = getattr(sqlparse, 'verbosity', 0)
+    sqlparse.verbosity = getattr(ctx, 'verbose', 0)
     try:
         formatted = sqlparse.format(sql_text, keyword_case='upper')
     except Exception as e:
         warn(ctx, "sqlparse: skipped - sqlparse error: {0}".format(e))
         return lines
+    finally:
+        sqlparse.verbosity = old_verbosity
     formatted_lines = formatted.splitlines()
     output = []
     if formatted_lines:
