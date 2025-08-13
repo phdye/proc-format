@@ -48,6 +48,9 @@ class ProCFormatterContext:
         "debug",
         "sql_dir",
         "registry",
+        "verbose",
+        "terse",
+        "silent",
     ]
 
     def __init__(self, args):
@@ -61,6 +64,9 @@ class ProCFormatterContext:
         # The registry is loaded from ``.exec-sql-parser`` files in the
         # directory tree containing ``input_file``.
         self.registry = load_registry(os.path.dirname(self.input_file), search)
+        self.verbose = getattr(args, 'verbose', 0)
+        self.terse = getattr(args, 'terse', False)
+        self.silent = getattr(args, 'silent', False)
 
 def format_name(debug_dir, *elements):
     elements = [str(e) for e in elements]
@@ -72,6 +78,16 @@ def open_file(debug_dir, file_name):
 def write_file(debug_dir, file_name, content):
     with open_file(debug_dir, file_name) as f:
         f.write(content)
+
+def vprint(ctx, level, message, end="\n"):
+    """Print ``message`` when ``ctx.verbose`` meets ``level``."""
+    if ctx is not None and getattr(ctx, 'verbose', 0) >= level and not getattr(ctx, 'silent', False):
+        print(message, end=end)
+
+def warn(ctx, message, end="\n"):
+    """Print ``message`` unless ``ctx`` requests terseness or silence."""
+    if ctx is None or (not getattr(ctx, 'terse', False) and not getattr(ctx, 'silent', False)):
+        print(message, end=end, file=sys.stderr)
 
 def process_file(ctx):
     """Format a Pro*C file while preserving EXEC SQL segments.
@@ -86,7 +102,7 @@ def process_file(ctx):
     Temporary files are written beneath ``ctx.debug`` for inspection.
     """
 
-    print("Formatting: {0}".format(ctx.input_file))
+    vprint(ctx, 1, "Formatting: {0}".format(ctx.input_file))
 
     if not ctx.keep:
         if os.path.exists(ctx.debug):
@@ -129,27 +145,26 @@ def process_file(ctx):
     with open(ctx.output_file, 'w') as f:
         f.write(pc_after)
 
-    print("File processed successfully: {0}\nd".format(ctx.input_file))
+    vprint(ctx, 1, "File processed successfully: {0}".format(ctx.input_file))
 
-def format_exec_sql_block(lines, construct):
-    """Format EXEC SQL ``lines`` using ``sqlparse`` unless ORACLE.
-
-    ``construct`` identifies the registry entry.  When ``sqlparse`` is
-    unavailable or the block begins with ``EXEC ORACLE`` no formatting is
-    applied.  The function returns a list of lines.
-    """
+def format_exec_sql_block(lines, construct, ctx=None):
+    """Format EXEC SQL ``lines`` using ``sqlparse`` unless ORACLE."""
     if not lines:
+        warn(ctx, "sqlparse: skipped - empty block")
         return lines
     first = lines[0].lstrip()
     if first.startswith('EXEC ORACLE') or construct.startswith('ORACLE'):
+        warn(ctx, "sqlparse: skipped - ORACLE block")
         return lines
     if sqlparse is None:
+        warn(ctx, "sqlparse: skipped - sqlparse unavailable")
         return lines
     match_indent = re_INDENT.match(lines[0])
     indent = match_indent.group(1)
     content = match_indent.group(2)
     m = re_EXEC_SQL.match(content)
     if not m:
+        warn(ctx, "sqlparse: skipped - pattern mismatch")
         return lines
     rest = m.group(2) or ''
     sql_lines = []
@@ -158,9 +173,11 @@ def format_exec_sql_block(lines, construct):
     for line in lines[1:]:
         sql_lines.append(line.strip())
     sql_text = "\n".join(sql_lines)
+    vprint(ctx, 1, "sqlparse: formatting EXEC SQL block")
     try:
         formatted = sqlparse.format(sql_text, keyword_case='upper')
-    except Exception:
+    except Exception as e:
+        warn(ctx, "sqlparse: skipped - sqlparse error: {0}".format(e))
         return lines
     formatted_lines = formatted.splitlines()
     output = []
@@ -190,7 +207,7 @@ def capture_exec_sql_blocks(ctx, lines, registry):
     current_stripped_line = None
     marker_counter = 1  # Sequential counter for unique markers
 
-    print("- Capture EXEC SQL segments ...")
+    vprint(ctx, 1, "- Capture EXEC SQL segments ...")
     # Ensure specific patterns are matched before generic ones.  Python 3.2
     # dictionaries do not preserve insertion order, so ``registry`` entries
     # are sorted by the length of their pattern with longer (more specific)
@@ -212,7 +229,7 @@ def capture_exec_sql_blocks(ctx, lines, registry):
                 marker = get_marker(marker_counter)
                 output_lines.append(marker)
                 captured = current_handler["action"](current_block)
-                captured_blocks.append(format_exec_sql_block(captured, current_construct))
+                captured_blocks.append(format_exec_sql_block(captured, current_construct, ctx))
                 with open_file(ctx.sql_dir, "%03d" % marker_counter) as f:
                     f.write(("Construct:  '{}'\n".format(current_construct))
                            +("Pattern:    '{}'\n".format(current_handler["pattern"]))
@@ -227,7 +244,8 @@ def capture_exec_sql_blocks(ctx, lines, registry):
                 current_handler = None
                 current_construct = None
                 current_stripped_line = None
-                print("b", end="")
+                if getattr(ctx, 'verbose', 0) >= 2:
+                    print("b", end="")
         else:
             for construct, details in registry_items:
                 if re.match(details["pattern"], stripped_line):
@@ -244,7 +262,7 @@ def capture_exec_sql_blocks(ctx, lines, registry):
                     else:
                         # Single-line match
                         captured = details["action"]([line])
-                        captured_blocks.append(format_exec_sql_block(captured, construct))
+                        captured_blocks.append(format_exec_sql_block(captured, construct, ctx))
                         with open_file(ctx.sql_dir, "%03d" % marker_counter) as f:
                             f.write(("Construct:  '{}'\n".format(construct))
                                    +("Pattern:    '{}'\n\n".format(details["pattern"]))
@@ -259,17 +277,19 @@ def capture_exec_sql_blocks(ctx, lines, registry):
                             marker = '} ' + marker
                         output_lines.append(marker)
                         marker_counter += 1
-                        print("s", end="")
+                        if getattr(ctx, 'verbose', 0) >= 2:
+                            print("s", end="")
                     break
             else:
                 output_lines.append(line)
-    print()
+    if getattr(ctx, 'verbose', 0) >= 2:
+        print()
 
     if inside_block:
         marker = get_marker(marker_counter)
         output_lines.append(marker)
         captured = current_handler["action"](current_block)
-        captured_blocks.append(format_exec_sql_block(captured, current_construct))
+        captured_blocks.append(format_exec_sql_block(captured, current_construct, ctx))
         with open_file(ctx.sql_dir, "%03d" % marker_counter) as f:
             f.write(("Construct:  '{0}'\n".format(current_construct))
                    +("Pattern:    '{0}'\n".format(current_handler["pattern"]))
@@ -279,7 +299,8 @@ def capture_exec_sql_blocks(ctx, lines, registry):
         if hasattr(ctx, 'exec_sql_before_fh'):
             ctx.exec_sql_before_fh.write("\n".join(current_block) + "\n= = = = =\n")
         marker_counter += 1
-        print("b", end="")
+        if getattr(ctx, 'verbose', 0) >= 2:
+            print("b", end="")
 
     return output_lines, captured_blocks
 
@@ -291,7 +312,7 @@ def format_with_clang(ctx, content):
     versions earlier than 3.7 the function encodes the input to bytes
     to satisfy ``subprocess``'s expectations.
     """
-    print("- Apply clang-format to C code content ...")
+    vprint(ctx, 1, "- Apply clang-format to C code content ...")
     popen_additional_args = {}
     if sys.version_info >= (3, 7, 0):  # Python 3.7 added ``text``
         popen_additional_args["text"] = True
@@ -322,7 +343,7 @@ def restore_exec_sql_blocks(content, exec_sql_segments, ctx=None):
     restored_lines = []
     expected_marker = 1  # Start with the first marker
 
-    print("- Restore EXEC SQL segments ...")
+    vprint(ctx, 1, "- Restore EXEC SQL segments ...")
 
     for line in lines:
         match = re_MARKER_PREFIX.match(line.strip())
@@ -345,14 +366,16 @@ def restore_exec_sql_blocks(content, exec_sql_segments, ctx=None):
                     for line in lines:
                         restored_lines.append(" " * more + line[-less:])
                 expected_marker += 1
-                print(".", end="")
+                if getattr(ctx, 'verbose', 0) >= 2:
+                    print(".", end="")
             except (IndexError, ValueError) as e:
                 raise ValueError("Invalid or missing marker: {0}, Error: {1}"
                                     .format(line, e))
         else:
             restored_lines.append(line)
 
-    print()
+    if getattr(ctx, 'verbose', 0) >= 2:
+        print()
 
     remaining = len(exec_sql_segments) - expected_marker + 1
     if remaining > 0:
