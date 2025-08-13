@@ -60,13 +60,14 @@ class ProCFormatterContext:
         self.keep = args.keep
         self.debug = args.debug
         self.sql_dir = os.path.join(self.debug, SQL_DIR)
-        search = not getattr(args, 'no_registry_parents', False)
-        # The registry is loaded from ``.exec-sql-parser`` files in the
-        # directory tree containing ``input_file``.
-        self.registry = load_registry(os.path.dirname(self.input_file), search)
         self.verbose = getattr(args, 'verbose', 0)
         self.terse = getattr(args, 'terse', False)
         self.silent = getattr(args, 'silent', False)
+        search = not getattr(args, 'no_registry_parents', False)
+        # The registry is loaded from ``.exec-sql-parser`` files in the
+        # directory tree containing ``input_file``.
+        self.registry = load_registry(os.path.dirname(self.input_file), search,
+                                      self.verbose)
 
 def format_name(debug_dir, *elements):
     elements = [str(e) for e in elements]

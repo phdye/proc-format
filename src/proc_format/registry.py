@@ -150,7 +150,7 @@ DEFAULT_EXEC_SQL_REGISTRY = {
     }
 }
 
-def load_registry(start_dir, search_parents=True):
+def load_registry(start_dir, search_parents=True, verbose=0):
     """Load EXEC SQL patterns starting at ``start_dir``.
 
     Configuration files named ``.exec-sql-parser`` are read from
@@ -158,6 +158,8 @@ def load_registry(start_dir, search_parents=True):
     remove entries from the default registry.  When ``search_parents`` is
     ``False`` only the starting directory is considered.
     """
+    if verbose >= 1:
+        print('Loading default configuration options')
     registry = DEFAULT_EXEC_SQL_REGISTRY.copy()
     path = os.path.abspath(start_dir)
     configs = []
@@ -170,7 +172,7 @@ def load_registry(start_dir, search_parents=True):
                 f.close()
             except Exception:
                 data = {}
-            configs.append(data)
+            configs.append((cfg_path, data))
             if data.get('root'):
                 break
         parent = os.path.dirname(path)
@@ -178,7 +180,9 @@ def load_registry(start_dir, search_parents=True):
             break
         path = parent
     configs.reverse()
-    for data in configs:
+    for cfg_path, data in configs:
+        if verbose >= 1:
+            print('Loading configuration options from {0}'.format(cfg_path))
         for name, value in data.items():
             if name == 'root':
                 continue
