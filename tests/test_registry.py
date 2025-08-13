@@ -61,6 +61,24 @@ def test_registry_root_stops_search():
         shutil.rmtree(base)
 
 
+def test_load_registry_verbose(capsys):
+    # Ensure verbose output lists configuration file sources.
+    base = tempfile.mkdtemp()
+    try:
+        write_cfg(base, '{"STATEMENT-Single-Line [1]": null}')
+        sub = os.path.join(base, 'sub')
+        os.mkdir(sub)
+        write_cfg(sub, '{"CUSTOM": {"pattern": "EXEC SQL TEST;"}}')
+        load_registry(sub, verbose=1)
+        captured = capsys.readouterr()
+        base_cfg = os.path.join(base, '.exec-sql-parser')
+        sub_cfg = os.path.join(sub, '.exec-sql-parser')
+        assert base_cfg in captured.out
+        assert sub_cfg in captured.out
+    finally:
+        shutil.rmtree(base)
+
+
 def test_capture_exec_sql_blocks_variants():
     # Validate capture_exec_sql_blocks handles known registry variants.
     path = os.path.join(os.path.dirname(__file__), 'data', 'exec_sql_variants.pc')
