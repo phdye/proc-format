@@ -191,6 +191,15 @@ def capture_exec_sql_blocks(ctx, lines, registry):
     marker_counter = 1  # Sequential counter for unique markers
 
     print("- Capture EXEC SQL segments ...")
+    # Ensure specific patterns are matched before generic ones.  Python 3.2
+    # dictionaries do not preserve insertion order, so ``registry`` entries
+    # are sorted by the length of their pattern with longer (more specific)
+    # patterns evaluated first.
+    registry_items = sorted(
+        registry.items(),
+        key=lambda item: len(item[1].get("pattern", "")),
+        reverse=True,
+    )
 
     for line_number, line in enumerate(lines, 1):
         stripped_line = line.strip()
@@ -220,7 +229,7 @@ def capture_exec_sql_blocks(ctx, lines, registry):
                 current_stripped_line = None
                 print("b", end="")
         else:
-            for construct, details in registry.items():
+            for construct, details in registry_items:
                 if re.match(details["pattern"], stripped_line):
                     if "error" in details:
                         raise ValueError("Unaccompanied block end marker detected at line {0}:\n{1}"
