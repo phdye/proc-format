@@ -178,7 +178,10 @@ def format_exec_sql_block(lines, construct, ctx=None):
     old_verbosity = getattr(sqlparse, 'verbosity', 0)
     sqlparse.verbosity = getattr(ctx, 'verbose', 0)
     try:
-        formatted = sqlparse.format(sql_text, keyword_case='upper')
+        cfg = sqlparse.config.load_config(getattr(ctx, 'input_file', None))
+        if not cfg.get('keyword_case'):
+            cfg['keyword_case'] = 'upper'
+        formatted = sqlparse.format(sql_text, **cfg)
     except Exception as e:
         warn(ctx, "sqlparse: skipped - sqlparse error: {0}".format(e))
         return lines
