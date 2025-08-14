@@ -1,5 +1,6 @@
-Script started on 2025-08-13 21:44:41-04:00 [COMMAND="set -x && bash" TERM="screen.xterm-256color" TTY="/dev/pty3" COLUMNS="121" LINES="40"]
-+ bash
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ echo $HOME
+/home/phdyex
 
 [ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
 $ rm -rf ~/.sqlparse-format 
@@ -94,7 +95,3 @@ void main() {
     AND  PERIOD_NAME = TO_CHAR(TO_DATE(:period,'MON-RR'),'MON-YYYY');
 }
 
-[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
-$ exit
-exit
-Script done on 2025-08-13 21:47:22-04:00 [COMMAND_EXIT_CODE="0"]
