@@ -1,0 +1,51 @@
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ cat qqq
+        SELECT COUNT(*)
+        INTO :count
+        FROM APPS.PERIODS
+        WHERE PERIOD_STATUS = 'Open'
+        AND  PERIOD_NAME = TO_CHAR(TO_DATE(:period,'MON-RR'),'MON-YYYY');
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ sqlformat qqq
+EXEC SQL
+    SELECT  COUNT(*)
+      INTO  :count
+      FROM  APPS.PERIODS
+     WHERE  PERIOD_STATUS = 'Open'
+       AND  PERIOD_NAME = TO_CHAR(TO_DATE(:period,'MON-RR'),'MON-YYYY');
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ cat foo.pc
+void main() {
+    EXEC SQL
+        SELECT COUNT(*)
+        INTO :count
+        FROM APPS.PERIODS
+        WHERE PERIOD_STATUS = 'Open'
+        AND  PERIOD_NAME = TO_CHAR(TO_DATE(:period,'MON-RR'),'MON-YYYY');
+}
+
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ ./scripts/proc-format -vvvvvvv {foo,bar}.pc
+Loading default configuration options
+Formatting: foo.pc
+- Capture EXEC SQL segments ...
+sqlparse: formatting EXEC SQL block
+b
+- Apply clang-format to C code content ...
+- Restore EXEC SQL segments ...
+.
+File processed successfully: foo.pc
+
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ cat bar.pc 
+void main() {
+    EXEC SQL SELECT COUNT(*)
+    INTO :count
+    FROM APPS.PERIODS
+    WHERE PERIOD_STATUS = 'Open'
+    AND  PERIOD_NAME = TO_CHAR(TO_DATE(:period,'MON-RR'),'MON-YYYY');
+}
