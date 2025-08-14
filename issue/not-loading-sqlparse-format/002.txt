@@ -1,0 +1,100 @@
+Script started on 2025-08-13 21:44:41-04:00 [COMMAND="set -x && bash" TERM="screen.xterm-256color" TTY="/dev/pty3" COLUMNS="121" LINES="40"]
++ bash
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ rm -rf ~/.sqlparse-format 
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ cat qqq
+    EXEC SQL
+        SELECT COUNT(*)
+        INTO :count
+        FROM APPS.PERIODS
+        WHERE PERIOD_STATUS = 'Open'
+        AND  PERIOD_NAME = TO_CHAR(TO_DATE(:period,'MON-RR'),'MON-YYYY');
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ sqlformat qqq
+    EXEC SQL
+        SELECT COUNT(*)
+        INTO :count
+        FROM APPS.PERIODS
+        WHERE PERIOD_STATUS = 'Open'
+        AND  PERIOD_NAME = TO_CHAR(TO_DATE(:period,'MON-RR'),'MON-YYYY');
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ cat ~/my-repos/sqlparse-3.2.5/behavior/down/sqlparse.ini
+version: 1
+keyword_case: upper
+strip_whitespace: true
+reindent_aligned: true
+pad_after_keyword: 2
+align_longest_keyword: true
+comma_first: true
+initial_indent: 4
+initial_pad_after_keyword: 2
+id_layout: hanging
+newline_at_eof: true
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ sqlformat --config ~/my-repos/sqlparse-3.2.5/behavior/down/sqlparse.ini qqq
+EXEC SQL
+    SELECT  COUNT(*)
+      INTO  :count
+      FROM  APPS.PERIODS
+     WHERE  PERIOD_STATUS = 'Open'
+       AND  PERIOD_NAME = TO_CHAR(TO_DATE(:period,'MON-RR'),'MON-YYYY');
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ cp ~/my-repos/sqlparse-3.2.5/behavior/down/sqlparse.ini ~/.sqlparse-format
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ ls-l
+-rw-rw-r--+ 1 phdyex None 231 Aug 13 21:46 /home/phdyex/.sqlparse-format
+-rw-rw-r--+ 1 phdyex None 231 Aug 12 20:41 /home/phdyex/my-repos/sqlparse-3.2.5/behavior/down/sqlparse.ini
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ sqlformat qqq
+EXEC SQL
+    SELECT  COUNT(*)
+      INTO  :count
+      FROM  APPS.PERIODS
+     WHERE  PERIOD_STATUS = 'Open'
+       AND  PERIOD_NAME = TO_CHAR(TO_DATE(:period,'MON-RR'),'MON-YYYY');
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ cat foo.pc 
+void main() {
+    EXEC SQL
+        SELECT COUNT(*)
+        INTO :count
+        FROM APPS.PERIODS
+        WHERE PERIOD_STATUS = 'Open'
+        AND  PERIOD_NAME = TO_CHAR(TO_DATE(:period,'MON-RR'),'MON-YYYY');
+}
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ proc-format -vvv {foo,bar}.pc
+Loading default configuration options
+Formatting: foo.pc
+- Capture EXEC SQL segments ...
+sqlparse: formatting EXEC SQL block
+b
+- Apply clang-format to C code content ...
+- Restore EXEC SQL segments ...
+.
+File processed successfully: foo.pc
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ cat bar.pc
+void main() {
+    EXEC SQL SELECT COUNT(*)
+    INTO :count
+    FROM APPS.PERIODS
+    WHERE PERIOD_STATUS = 'Open'
+    AND  PERIOD_NAME = TO_CHAR(TO_DATE(:period,'MON-RR'),'MON-YYYY');
+}
+
+[ 2 ] phdyex @ xps-ne /D/-/maint/vs-code/pro-c/proc-format
+$ exit
+exit
+Script done on 2025-08-13 21:47:22-04:00 [COMMAND_EXIT_CODE="0"]
