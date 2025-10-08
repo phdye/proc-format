@@ -15,6 +15,7 @@ except ImportError:  # pragma: no cover - sqlparse optional
 from .registry import load_registry
 from .registry import re_DECLARE_BEGIN, re_DECLARE_END, re_EXEC_SQL, re_INDENT
 
+from .f_identical import verify_functionally_identical
 logging.basicConfig(level=logging.INFO)
 
 MARKER_PREFIX = "// EXEC SQL MARKER"
@@ -193,6 +194,48 @@ def process_file(ctx):
     with open(ctx.output_file, 'w') as f:
         f.write(pc_after)
 
+
+    # Step 5: Verify functional identity
+    if not getattr(ctx, 'skip_verification', False):
+        vprint(ctx, 1, "\nVerifying functional identity...")
+        
+        # Determine file paths
+        input_file = ctx.input_file
+        output_file = ctx.output_file
+        
+        # Check if this is a Pro*C file
+        is_proc_c = input_file.endswith('.pc')
+        
+        if is_proc_c:
+            # For .pc files, verify both .pc source files
+            vprint(ctx, 1, "  Checking .pc files are functionally identical...")
+            verify_functionally_identical(
+                input_file,
+                output_file,
+                verbose=(ctx.verbose >= 2)
+            )
+            
+            # Also verify the intermediate .c files created during processing
+            before_c_path = os.path.join(ctx.debug, BEFORE_C)
+            after_c_path = os.path.join(ctx.debug, AFTER_C)
+            
+            if os.path.exists(before_c_path) and os.path.exists(after_c_path):
+                vprint(ctx, 1, "  Checking intermediate .c files are functionally identical...")
+                verify_functionally_identical(
+                    before_c_path,
+                    after_c_path,
+                    verbose=(ctx.verbose >= 2)
+                )
+        else:
+            # For .c files, just verify the .c file
+            vprint(ctx, 1, "  Checking .c files are functionally identical...")
+            verify_functionally_identical(
+                input_file,
+                output_file,
+                verbose=(ctx.verbose >= 2)
+            )
+        
+        vprint(ctx, 1, "✓ All verification checks PASSED\n")
     vprint(ctx, 1, "File processed successfully: {0}".format(ctx.input_file))
 
 def format_exec_sql_block(lines, construct, ctx=None):
