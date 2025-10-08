@@ -1,0 +1,22 @@
+#!/bin/bash
+
+if [ -f SYMS ] ; then
+    sym --remove SYMS > /dev/null 2>&1
+fi
+
+# name=$( egrep '^\s*name\s*=\s*"' pyproject.toml | head -1 | sed -e 's/^\s*name\s*=\s*"//;s/".*//' )
+
+( set -x && python3.2 -m pip --disable-pip-version-check install . --user --force --upgrade )
+
+if [ -f SYMS ] ; then
+    sym --apply SYMS > /dn/errors.txt 2>&1
+    if [ $? -ne 0 ] ; then
+        ( cat /dn/errors.txt \
+        ; echo "Error:  Failed to apply SYMS" \
+        ; echo "Please run 'sym --apply SYMS' manually to restore symbolic links." \
+        ) >&2
+        exit 1
+    fi
+fi
+
+exit 0

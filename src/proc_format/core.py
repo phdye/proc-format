@@ -20,6 +20,10 @@ logging.basicConfig(level=logging.INFO)
 MARKER_PREFIX = "// EXEC SQL MARKER"
 re_MARKER_PREFIX = re.compile(r"([{}])?\s*//\s\s*EXEC\s\s*SQL\s\s*MARKER\s\s*:(\d+):")
 
+# Form-feed preservation
+FORMFEED_MARKER = "/* FORMFEED_PLACEHOLDER_{:04d} */"
+re_FORMFEED_MARKER = re.compile(r'/\*\s*FORMFEED_PLACEHOLDER_(\d+)\s*\*/')
+
 BEFORE_PC = "before.pc"             # Original Pro*C content before formatting
 BEFORE_C = "before.c"               # C content before formatting
 AFTER_C = "after.c"                 # C content after formatting
@@ -90,6 +94,48 @@ def warn(ctx, message, end="\n"):
     if ctx is None or (not getattr(ctx, 'terse', False) and not getattr(ctx, 'silent', False)):
         print(message, end=end, file=sys.stderr)
 
+def preserve_formfeeds(content):
+    """Replace form-feed characters with unique markers.
+
+    Form-feed characters (ASCII 0x0C, \\f) are temporarily replaced with
+    unique comment markers to prevent clang-format from removing or
+    normalizing them.
+
+    Returns:
+        tuple: (modified_content, formfeed_count) where modified_content
+               has markers instead of form-feeds, and formfeed_count is
+               the number of form-feeds found.
+    """
+    result = []
+    counter = 0
+
+    for char in content:
+        if char == '\f':
+            marker = FORMFEED_MARKER.format(counter)
+            result.append(marker)
+            counter += 1
+        else:
+            result.append(char)
+
+    return ''.join(result), counter
+
+def restore_formfeeds(content):
+    """Restore form-feed characters from markers.
+
+    Replaces all FORMFEED_PLACEHOLDER markers with actual form-feed
+    characters (\\f).
+
+    Args:
+        content: String containing FORMFEED_PLACEHOLDER markers.
+
+    Returns:
+        str: Content with form-feed characters restored.
+    """
+    def replace_marker(match):
+        return '\f'
+
+    return re_FORMFEED_MARKER.sub(replace_marker, content)
+
 def process_file(ctx):
     """Format a Pro*C file while preserving EXEC SQL segments.
 
@@ -127,7 +173,8 @@ def process_file(ctx):
                                 exit("Failed to create file '%s'" % file_name)
 
     # Step 1: Mark EXEC SQL lines
-    marked_content, exec_sql_segments = capture_exec_sql_blocks(ctx, pc_before.splitlines(), ctx.registry)
+    # Use split('\n') instead of splitlines() to preserve form-feeds
+    marked_content, exec_sql_segments = capture_exec_sql_blocks(ctx, pc_before.split('\n'), ctx.registry)
     c_before = "\n".join(marked_content)
     write_file(ctx.debug, BEFORE_C, c_before)
 
@@ -150,12 +197,15 @@ def process_file(ctx):
 
 def format_exec_sql_block(lines, construct, ctx=None):
     """Format EXEC SQL ``lines`` using ``sqlparse`` unless ORACLE."""
+    verbosity = getattr(ctx, 'verbose', 0)
     if not lines:
-        warn(ctx, "sqlparse: skipped - empty block")
+        if verbosity >= 3:
+            warn(ctx, "sqlparse: skipped - empty block")
         return lines
     first = lines[0].lstrip()
     if first.startswith('EXEC ORACLE') or construct.startswith('ORACLE'):
-        warn(ctx, "sqlparse: skipped - ORACLE block")
+        if verbosity >= 3:
+            warn(ctx, "sqlparse: skipped - ORACLE block")
         return lines
     if sqlparse is None:
         warn(ctx, "sqlparse: skipped - sqlparse unavailable")
@@ -174,10 +224,12 @@ def format_exec_sql_block(lines, construct, ctx=None):
     for line in lines[1:]:
         sql_lines.append(line.strip())
     sql_text = "\n".join(sql_lines)
-    vprint(ctx, 1, "sqlparse: formatting EXEC SQL block")
+    vprint(ctx, 1, "sqlparse: formatting EXEC SQL block : v=9")
     old_verbosity = getattr(sqlparse, 'verbosity', 0)
-    sqlparse.verbosity = getattr(ctx, 'verbose', 0)
+    sqlparse.verbosity = verbosity
     try:
+        # print(": formated = sqlparse.format(sql_text, keyword_case='upper')", file=sys.stderr)
+        # print(": sqlparse.__file__ = {0}".format(sqlparse.__file__), file=sys.stderr)
         formatted = sqlparse.format(sql_text, keyword_case='upper')
     except Exception as e:
         warn(ctx, "sqlparse: skipped - sqlparse error: {0}".format(e))
@@ -312,12 +364,21 @@ def capture_exec_sql_blocks(ctx, lines, registry):
 def format_with_clang(ctx, content):
     """Return ``content`` formatted with ``clang-format``.
 
+    Form-feed characters are preserved by temporarily replacing them
+    with markers during formatting.
+
     ``ctx.clang_format_path`` is executed as a subprocess.  Any
     ``clang-format`` failure results in ``RuntimeError``.  On Python
     versions earlier than 3.7 the function encodes the input to bytes
     to satisfy ``subprocess``'s expectations.
     """
     vprint(ctx, 1, "- Apply clang-format to C code content ...")
+
+    # Preserve form-feeds before formatting
+    content, formfeed_count = preserve_formfeeds(content)
+    if formfeed_count > 0:
+        vprint(ctx, 2, "  - Preserving {0} form-feed character(s) ...".format(formfeed_count))
+
     popen_additional_args = {}
     if sys.version_info >= (3, 7, 0):  # Python 3.7 added ``text``
         popen_additional_args["text"] = True
@@ -333,6 +394,12 @@ def format_with_clang(ctx, content):
         raise RuntimeError("Clang-format failed: {0}".format(error))
     if sys.version_info < (3, 7, 0):
         output = output.decode()
+
+    # Restore form-feeds after formatting
+    if formfeed_count > 0:
+        vprint(ctx, 2, "  - Restoring form-feed character(s) ...")
+        output = restore_formfeeds(output)
+
     return output
 
 def restore_exec_sql_blocks(content, exec_sql_segments, ctx=None):

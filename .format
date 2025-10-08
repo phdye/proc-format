@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# OPT=-vvv
+OPT=
+
+set -euo pipefail
+
+( set -x && cat foo.pc )
+echo
+
+export PYTHONPATH=
+
+( set -x && ./scripts/proc-format ${OPT} "$@" {foo,bar}.pc )
+echo
+
+( set -x && cat bar.pc )
+echo

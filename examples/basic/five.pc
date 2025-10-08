@@ -1,0 +1,12 @@
+#define SUCCESS 0
+#define FAIL    1
+ 
+EXEC SQL INCLUDE SQLCA;
+
+#define OTHER  1
+
+void main(int argc, char **argv) {
+
+  EXEC SQL WHENEVER SQLERROR DO sql_error(1, "Error main()");
+
+  EXEC SQL SELECT 1;
