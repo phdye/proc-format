@@ -4,10 +4,13 @@ f_identical.py - Functional identity verification for proc-format
 Verifies that two files are functionally identical by comparing them
 after removing all whitespace. This ensures code reformatting doesn't
 introduce functional changes.
+
+Python 3.2.5 compatible version - no f-strings.
 """
 
 import sys
 import hashlib
+
 from pathlib import Path
 
 
@@ -148,14 +151,14 @@ def f_identical_check(file1_path, file2_path):
         with open(file1_path, 'rb') as f:
             content1 = f.read()
     except Exception as e:
-        result.error_msg = f"Cannot read {file1_path}: {e}"
+        result.error_msg = "Cannot read {}: {}".format(file1_path, e)
         return result
     
     try:
         with open(file2_path, 'rb') as f:
             content2 = f.read()
     except Exception as e:
-        result.error_msg = f"Cannot read {file2_path}: {e}"
+        result.error_msg = "Cannot read {}: {}".format(file2_path, e)
         return result
     
     # Strip whitespace
@@ -181,9 +184,9 @@ def f_identical_check(file1_path, file2_path):
     if result.diff_offset >= 0:
         result.context_before = extract_context(stripped1, result.diff_offset)
         result.context_after = extract_context(stripped2, result.diff_offset)
-        result.error_msg = f"Files differ at byte {result.diff_offset} (after whitespace removal)"
+        result.error_msg = "Files differ at byte {} (after whitespace removal)".format(result.diff_offset)
     else:
-        result.error_msg = f"Files have different sizes: {result.size1} vs {result.size2} bytes"
+        result.error_msg = "Files have different sizes: {} vs {} bytes".format(result.size1, result.size2)
     
     return result
 
@@ -201,22 +204,22 @@ def print_error(result, file1, file2, fp=sys.stderr):
     print("  FATAL: Files are NOT functionally identical", file=fp)
     print("=" * 70 + "\n", file=fp)
     
-    print(f"File 1: {file1}", file=fp)
-    print(f"File 2: {file2}\n", file=fp)
+    print("File 1: {}".format(file1), file=fp)
+    print("File 2: {}\n".format(file2), file=fp)
     
     print("After removing all whitespace:", file=fp)
-    print(f"  Size 1:     {result.size1} bytes", file=fp)
-    print(f"  Checksum 1: {result.checksum1}", file=fp)
-    print(f"  Size 2:     {result.size2} bytes", file=fp)
-    print(f"  Checksum 2: {result.checksum2}\n", file=fp)
+    print("  Size 1:     {} bytes".format(result.size1), file=fp)
+    print("  Checksum 1: {}".format(result.checksum1), file=fp)
+    print("  Size 2:     {} bytes".format(result.size2), file=fp)
+    print("  Checksum 2: {}\n".format(result.checksum2), file=fp)
     
     print(result.error_msg, file=fp)
     
     if result.diff_offset >= 0 and result.context_before:
         print("\nContext from file 1:", file=fp)
-        print(f"  {result.context_before}\n", file=fp)
+        print("  {}\n".format(result.context_before), file=fp)
         print("Context from file 2:", file=fp)
-        print(f"  {result.context_after}\n", file=fp)
+        print("  {}\n".format(result.context_after), file=fp)
         print("Note: [>...<] marks the position of first difference", file=fp)
     
     print("\n" + "=" * 70 + "\n", file=fp)
@@ -241,11 +244,11 @@ def verify_functionally_identical(file1, file2, verbose=False):
     
     if result.identical:
         if verbose:
-            print(f"✓ Files are functionally identical:", file=sys.stderr)
-            print(f"    {file1}", file=sys.stderr)
-            print(f"    {file2}", file=sys.stderr)
-            print(f"  Size: {result.size1} bytes, Checksum: {result.checksum1[:16]}...", 
-                  file=sys.stderr)
+            print("✓ Files are functionally identical:", file=sys.stderr)
+            print("    {}".format(file1), file=sys.stderr)
+            print("    {}".format(file2), file=sys.stderr)
+            print("  Size: {} bytes, Checksum: {}...".format(
+                result.size1, result.checksum1[:16]), file=sys.stderr)
         return True
     
     # Should not reach here
@@ -273,9 +276,10 @@ if __name__ == '__main__':
     
     if not args.quiet:
         if result.identical:
-            print(f"[SUCCESS] Files are functionally IDENTICAL")
-            print(f"  Both files have same content after whitespace normalization")
-            print(f"  Size: {result.size1} bytes, Checksum: {result.checksum1[:16]}...")
+            print("[SUCCESS] Files are functionally IDENTICAL")
+            print("  Both files have same content after whitespace normalization")
+            print("  Size: {} bytes, Checksum: {}...".format(
+                result.size1, result.checksum1[:16]))
         else:
             print_error(result, args.file1, args.file2)
     

@@ -273,7 +273,8 @@ def format_exec_sql_block(lines, construct, ctx=None):
     try:
         # print(": formated = sqlparse.format(sql_text, keyword_case='upper')", file=sys.stderr)
         # print(": sqlparse.__file__ = {0}".format(sqlparse.__file__), file=sys.stderr)
-        formatted = sqlparse.format(sql_text, keyword_case='upper')
+        # formatted = sqlparse.format(sql_text, keyword_case='upper')
+        formatted = sqlparse.format(sql_text, keyword_case=None) # changing case breaks f_identical
     except Exception as e:
         warn(ctx, "sqlparse: skipped - sqlparse error: {0}".format(e))
         return lines
