@@ -5,9 +5,16 @@ Test f_identical module functionality.
 import os
 import sys
 import tempfile
-from pathlib import Path
 
-# Add src to path for imports
+# Try standard pathlib first, fall back to vendored version
+try:
+    from pathlib import Path
+except ImportError:
+    # Add src to path for imports
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+    from proc_format.vendor.pathlib import Path
+
+# Add src to path for module imports
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from proc_format.f_identical import (

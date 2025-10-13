@@ -11,7 +11,11 @@ Python 3.2.5 compatible version - no f-strings.
 import sys
 import hashlib
 
-from pathlib import Path
+# Try standard pathlib first, fall back to vendored version
+try:
+    from pathlib import Path
+except ImportError:
+    from proc_format.vendor.pathlib import Path
 
 
 class FIdenticalResult:
